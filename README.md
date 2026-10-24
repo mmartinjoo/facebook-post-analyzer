@@ -1,8 +1,11 @@
 # Facebook poszt-elemző
 
+curl -X POST "$APP_BASE_URL/api/jobs/backfill?since=2026-10-01" -H "X-Admin-Secret: $ADMIN_SECRET"
+curl -X POST "$APP_BASE_URL/api/jobs/summarize?month=2026-10" -H "X-Admin-Secret: $ADMIN_SECRET"
+
 ## Mi ez
 
-Napi rendszerességgel futó, felügyelet nélküli pipeline egy magyar self-storage konténerpark-startup számára: öt működő versenytárs Facebook-oldalának posztjait és kommentjeit Apify-jal tölti le, Claude-dal strukturált mezőkre bontja (célközönség, fájdalompont, ár, ajánlat, bizalmi elemek stb.), és mindent egy Neon Postgres adatbázisba ír. Az eredményt SQL-ből lehet nézni, dashboard nincs.
+Heti rendszerességgel futó, felügyelet nélküli pipeline egy magyar self-storage konténerpark-startup számára: öt működő versenytárs Facebook-oldalának posztjait és kommentjeit Apify-jal tölti le, Claude-dal strukturált mezőkre bontja (célközönség, fájdalompont, ár, ajánlat, bizalmi elemek stb.), és mindent egy Neon Postgres adatbázisba ír. Az eredményt SQL-ből lehet nézni, dashboard nincs.
 
 - Spec: [`docs/superpowers/specs/2026-10-24-facebook-post-analyzer-design.md`](docs/superpowers/specs/2026-10-24-facebook-post-analyzer-design.md)
 - Terv: [`docs/superpowers/plans/2026-10-24-facebook-post-analyzer.md`](docs/superpowers/plans/2026-10-24-facebook-post-analyzer.md)

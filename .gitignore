@@ -3,3 +3,5 @@
 __pycache__/
 .vercel/
 .pytest_cache/
+.vercel
+.env*
