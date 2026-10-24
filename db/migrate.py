@@ -25,6 +25,9 @@ def migrate(dsn: str) -> list[str]:
 
 
 if __name__ == "__main__":
-    from app.config import get_settings
+    import sys
 
-    print(migrate(get_settings().database_url))
+    if len(sys.argv) != 2:
+        sys.exit('usage: python db/migrate.py "$DATABASE_URL"')
+    done = migrate(sys.argv[1])
+    print("applied: " + (", ".join(done) if done else "none (already up to date)"))

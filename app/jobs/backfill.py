@@ -8,7 +8,7 @@ from app.apify_runs import start_comments_run, start_posts_run
 from app.ingest.comments import posts_in_month
 from app.jobs.runner import continue_job
 from app.pages import load_active_pages
-from app.timeutil import BUDAPEST, previous_month
+from app.timeutil import BUDAPEST, months_between, previous_month
 
 
 def stale_months(conn) -> list[date]:
@@ -81,3 +81,33 @@ def run_monthly(conn, settings, client) -> dict:
         )
     )
     return {"month": label, "run_id": run_id, "posts": len(posts)}
+
+
+def backfill_comments(conn, settings, client, *, from_month: date, to_month: date) -> list[int]:
+    started = time.monotonic()
+    run_ids: list[int] = []
+    for m in months_between(from_month, to_month):
+        posts = posts_in_month(conn, m)
+        if not posts:
+            continue
+        run_ids.append(
+            start_comments_run(
+                conn, settings, client, [p["url"] for p in posts],
+                kind="backfill_comments",
+                params={"from": from_month.strftime("%Y-%m"), "to": to_month.strftime("%Y-%m"), "month": m.strftime("%Y-%m")},
+                results_limit=100,
+            )
+        )
+    logging.info(
+        json.dumps(
+            {"job": "backfill_comments", "run_ids": run_ids, "elapsed_s": round(time.monotonic() - started, 2)}
+        )
+    )
+    return run_ids
+
+
+def summarize_range(settings, *, from_month: date, to_month: date) -> list[str]:
+    labels = [m.strftime("%Y-%m") for m in months_between(from_month, to_month)]
+    for label in labels:
+        continue_job(settings, "/api/jobs/summarize", {"month": label})
+    return labels
