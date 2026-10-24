@@ -46,7 +46,11 @@ def main() -> None:
         if any("error" not in i for i in items):
             items = [i for i in items if "error" not in i]
             break
-    FIXTURE.write_text(json.dumps(items, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+    if any(i.get("commentId") for i in items):
+        FIXTURE.write_text(json.dumps(items, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+        print("fixture written:", FIXTURE)
+    else:
+        print(f"WARNING: no item with a commentId (login wall / error items?); keeping the existing {FIXTURE.name}")
     print("items:", len(items))
     if items:
         print("top-level keys:", sorted(items[0].keys()))

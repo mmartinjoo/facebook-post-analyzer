@@ -62,3 +62,12 @@ from pages p
 left join posts po on po.page_id = p.id
 group by p.id, p.name
 order by p.name;
+
+-- 9. Elakadt láncok: élő vagy lejárt job-zárak, és 30 percnél régebben `started`/`processing` állapotú futások
+select 'zar' as tipus, job_name as nev, locked_by as reszlet, locked_until as ido
+from job_locks
+union all
+select 'run', kind || ' #' || id, status || ' ' || apify_run_id, started_at
+from scrape_runs
+where status in ('started', 'processing') and started_at < now() - interval '30 minutes'
+order by ido;
