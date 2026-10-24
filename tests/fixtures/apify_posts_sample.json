@@ -1,0 +1,199 @@
+[
+  {
+    "facebookUrl": "https://www.facebook.com/kontigokontenerpark",
+    "postId": "1093076396663170",
+    "pageName": "kontigokontenerpark",
+    "url": "https://www.facebook.com/kontigokontenerpark/posts/1617558843381769:1617558843381769",
+    "time": "2026-09-28T10:06:43.000Z",
+    "timestamp": 1790590003,
+    "user": {
+      "id": "100078824590345",
+      "name": "Kontigo Konténerpark - Győr, Mosonmagyaróvár, Szombathely",
+      "profileUrl": "https://www.facebook.com/100078824590345",
+      "profilePic": "https://scontent-lga3-3.xx.fbcdn.net/v/t39.30808-1/275065741_112602191357067_1093549583968147263_n.jpg?stp=cp0_dst-jpg_tt6&cstp=mx484x484&ctp=s50x50&_nc_cat=106&ccb=1-7&_nc_sid=2d3e12&_nc_ohc=OjkFjKwZCEAQ7kNvwH-heDT&_nc_oc=AdrNxqAGLtN5DnyieO7OZMVeDufbofKW9nOBE4la9lNNkc91D1xZIcQt1s1FK9ItbwU&_nc_zt=24&_nc_ht=scontent-lga3-3.xx&_nc_gid=JDA20irdNnFSfqr00-GqYQ&_nc_ss=70180&oh=00_AQOchc15gIBBF1g2dPbcD24kiB7qehVgY9uCpT_9ZaK75g&oe=6AE2812A"
+    },
+    "collaborators": [
+      {
+        "__typename": "User",
+        "__isEntity": "User",
+        "__isActor": "User",
+        "id": "100078824590345",
+        "url": "https://www.facebook.com/kontigokontenerpark",
+        "profile_url": "https://www.facebook.com/kontigokontenerpark",
+        "short_name": "Kontigo Konténerpark - Győr, Mosonmagyaróvár, Szombathely",
+        "work_info": null,
+        "__module_operation_CometTextWithEntitiesRelay_textWithEntities": {
+          "__dr": "ProfileGeminiWeakReferenceLink_user$normalization.graphql"
+        },
+        "__module_component_CometTextWithEntitiesRelay_textWithEntities": {
+          "__dr": "ProfileGeminiWeakReferenceLink.react"
+        },
+        "work_foreign_entity_info": null,
+        "is_verified": false,
+        "mobileUrl": "https://m.facebook.com/kontigokontenerpark/",
+        "__isNode": "User"
+      }
+    ],
+    "text": "",
+    "likes": 0,
+    "shares": 0,
+    "topReactionsCount": 0,
+    "media": [
+      {
+        "thumbnail": "https://scontent-lga3-3.xx.fbcdn.net/v/t39.30808-6/828676209_1093076409996502_6070677045164306785_n.png?stp=dst-png&cstp=mx2078x757&ctp=p180x540&_nc_cat=102&ccb=1-7&_nc_sid=cc71e4&_nc_ohc=MxyTQFN_r4MQ7kNvwEtRWTf&_nc_oc=AdraUc8BXR32LbOIg4fFEpORwVUdBU1caR_37UoMuQQUF-O1nCiSjSWJAwV43A0btro&_nc_zt=23&_nc_ht=scontent-lga3-3.xx&_nc_gid=JDA20irdNnFSfqr00-GqYQ&_nc_ss=70180&oh=00_AQOELuetpx3B5gPc7gSze9WG7nv3w6Afog2Bqpj62bKr1Q&oe=6AE278A4",
+        "__typename": "Photo",
+        "photo_image": {
+          "uri": "https://scontent-lga3-3.xx.fbcdn.net/v/t39.30808-6/828676209_1093076409996502_6070677045164306785_n.png?stp=dst-png&cstp=mx2078x757&ctp=p180x540&_nc_cat=102&ccb=1-7&_nc_sid=cc71e4&_nc_ohc=MxyTQFN_r4MQ7kNvwEtRWTf&_nc_oc=AdraUc8BXR32LbOIg4fFEpORwVUdBU1caR_37UoMuQQUF-O1nCiSjSWJAwV43A0btro&_nc_zt=23&_nc_ht=scontent-lga3-3.xx&_nc_gid=JDA20irdNnFSfqr00-GqYQ&_nc_ss=70180&oh=00_AQOELuetpx3B5gPc7gSze9WG7nv3w6Afog2Bqpj62bKr1Q&oe=6AE278A4",
+          "height": 540,
+          "width": 1482
+        },
+        "placeholder_image": {
+          "uri": "https://scontent-lga3-3.xx.fbcdn.net/v/t39.30808-6/828676209_1093076409996502_6070677045164306785_n.png?stp=dst-png&cstp=mx2078x757&ctp=p180x540&_nc_cat=102&ccb=1-7&_nc_sid=cc71e4&_nc_ohc=MxyTQFN_r4MQ7kNvwEtRWTf&_nc_oc=AdraUc8BXR32LbOIg4fFEpORwVUdBU1caR_37UoMuQQUF-O1nCiSjSWJAwV43A0btro&_nc_zt=23&_nc_ht=scontent-lga3-3.xx&_nc_gid=JDA20irdNnFSfqr00-GqYQ&_nc_ss=70180&oh=00_AQOELuetpx3B5gPc7gSze9WG7nv3w6Afog2Bqpj62bKr1Q&oe=6AE278A4"
+        },
+        "url": "https://www.facebook.com/photo/?fbid=1093076396663170&set=a.188659817104837",
+        "feedback": {
+          "can_viewer_comment": false,
+          "id": "ZmVlZGJhY2s6MTA5MzA3NjM5NjY2MzE3MA=="
+        },
+        "id": "1093076396663170"
+      }
+    ],
+    "feedbackId": "ZmVlZGJhY2s6MTA5MzA3NjM5NjY2MzE3MA==",
+    "paidPartnership": false,
+    "topLevelUrl": "https://www.facebook.com/100078824590345/posts/1093076396663170",
+    "facebookId": "100078824590345",
+    "pageAdLibrary": {
+      "id": "112595901357696",
+      "pamv_comms_data": null
+    },
+    "inputUrl": "https://www.facebook.com/kontigokontenerpark"
+  },
+  {
+    "facebookUrl": "https://www.facebook.com/kontigokontenerpark",
+    "postId": "1065936826043794",
+    "pageName": "kontigokontenerpark",
+    "url": "https://www.facebook.com/kontigokontenerpark/posts/pfbid0zHhiKwAP1L19VhXA8GXuoCFbNJUoQ7pByddkFuxeBcb4kJywcqYBLLitYqQE8Ge5l",
+    "time": "2026-08-27T16:43:02.000Z",
+    "timestamp": 1787848982,
+    "user": {
+      "id": "100078824590345",
+      "name": "Kontigo Konténerpark - Győr, Mosonmagyaróvár, Szombathely",
+      "profileUrl": "https://www.facebook.com/100078824590345",
+      "profilePic": "https://scontent-lga3-3.xx.fbcdn.net/v/t39.30808-1/275065741_112602191357067_1093549583968147263_n.jpg?stp=cp0_dst-jpg_tt6&cstp=mx484x484&ctp=s50x50&_nc_cat=106&ccb=1-7&_nc_sid=2d3e12&_nc_ohc=OjkFjKwZCEAQ7kNvwH-heDT&_nc_oc=AdrNxqAGLtN5DnyieO7OZMVeDufbofKW9nOBE4la9lNNkc91D1xZIcQt1s1FK9ItbwU&_nc_zt=24&_nc_ht=scontent-lga3-3.xx&_nc_gid=JDA20irdNnFSfqr00-GqYQ&_nc_ss=70180&oh=00_AQOchc15gIBBF1g2dPbcD24kiB7qehVgY9uCpT_9ZaK75g&oe=6AE2812A"
+    },
+    "collaborators": [],
+    "text": "📦 Mennyi helyre van szükséged? Már 27.940 Ft/hó-tól van rá megoldásunk.\n\nNem mindegy, mekkora hely kell a tároláshoz. Nálunk három különböző konténerméret közül választhatsz, így nem kell feleslegesen nagyobb területért fizetned.\n\n🔹 KICSI – 7 m²\n10 lábas konténer | 27.940 Ft/hó\n🔹 NORMÁL – 14 m²\n20 lábas konténer | 34.290 Ft/hó\n🔹 NAGY – 28 m²\n40 lábas magasított konténer | 46.990 Ft/hó\n\nLegyen szó költözésről, felújításról, szezonális holmik, bútorok, szerszámok vagy céges eszközök tárolásáról, válaszd azt a méretet, ami valóban megfelel az igényeidnek.\n\nNem tudod, melyik lenne ideális számodra?\nKeress minket, és segítünk a választásban!\n\nKonténerparkjaink: \n📍 Győr\n📍 Mosonmagyaróvár\n📍 Szombathely\nRészletek itt: 👉 www.kontigo.hu\n📞 Telefon: +36 20 356 0908",
+    "textReferences": [
+      {
+        "url": "https://l.facebook.com/l.php?u=http%3A%2F%2Fwww.kontigo.hu%2F&h=AUCqUEQUvJ-0nV1q22riPhVbTuebZtpG94cVCpWYXJwoi_x63wphreaNomWLJ7yDGbXFOnfYg7NTCtTGdZBtoRACY9m46-Etumd6vSaKUCpfyaU12LM0uQKxHcu7gwN5InLbDUffnQ1AKuSIVfAxxHT_4Eh90BXB&s=1",
+        "external_url": "http://www.kontigo.hu/",
+        "web_link": {
+          "__typename": "ExternalWebLink",
+          "url": "http://www.kontigo.hu/",
+          "fbclid": null,
+          "lynx_mode": "ASYNCLAZY"
+        },
+        "mobileUrl": "https://lm.facebook.com/l.php?u=http%3A%2F%2Fwww.kontigo.hu%2F&h=AUAYwtkTm560OleI4LgztYa23K7tHJG1amVfMUFpwQEAXgiMyhR9KgebU37PZ6rpocjQjCpUiA0lzv6oPmh0t30M09OAN9KuKl_9wYV-qZhtTDVV6-20g_cjRhqn4zJ5C_-BfiCqIJEDvxi2fUuQ4dJR2ehe5d7r&s=1",
+        "id": "NjQyMTgzOTU5MjA4MTA3Omh0dHBcYS8vd3d3LmtvbnRpZ28uaHUvOjpEZWZhdWx0Ojo6MTA2NTkzNjgyNjA0Mzc5NDo="
+      }
+    ],
+    "link": "http://www.kontigo.hu/",
+    "likes": 0,
+    "shares": 0,
+    "topReactionsCount": 0,
+    "media": [
+      {
+        "thumbnail": "https://scontent-lga3-3.xx.fbcdn.net/v/t39.30808-6/788241587_1065525716084905_1838830379666103196_n.jpg?stp=dst-jpg_tt6&cstp=mx1254x1254&ctp=p526x296&_nc_cat=106&ccb=1-7&_nc_sid=127cfc&_nc_ohc=FvEO60JReUQQ7kNvwE-sgnc&_nc_oc=AdqD-yXIQ3K3xAShKYnxovxjmFbPEQzjz8VbP3vVGbcSzRIqF1UmYf5EkA441-nER24&_nc_zt=23&_nc_ht=scontent-lga3-3.xx&_nc_gid=JDA20irdNnFSfqr00-GqYQ&_nc_ss=70180&oh=00_AQPIboenSEH0tUjrKeFJMIC2JnSjSIdCZZK37o-ZkGlk3g&oe=6AE2887D",
+        "__typename": "Photo",
+        "__isMedia": "Photo",
+        "accent_color": "FFF3F4F5",
+        "photo_product_tags": [],
+        "photo_image": {
+          "uri": "https://scontent-lga3-3.xx.fbcdn.net/v/t39.30808-6/788241587_1065525716084905_1838830379666103196_n.jpg?stp=dst-jpg_tt6&cstp=mx1254x1254&ctp=p526x296&_nc_cat=106&ccb=1-7&_nc_sid=127cfc&_nc_ohc=FvEO60JReUQQ7kNvwE-sgnc&_nc_oc=AdqD-yXIQ3K3xAShKYnxovxjmFbPEQzjz8VbP3vVGbcSzRIqF1UmYf5EkA441-nER24&_nc_zt=23&_nc_ht=scontent-lga3-3.xx&_nc_gid=JDA20irdNnFSfqr00-GqYQ&_nc_ss=70180&oh=00_AQPIboenSEH0tUjrKeFJMIC2JnSjSIdCZZK37o-ZkGlk3g&oe=6AE2887D",
+          "height": 526,
+          "width": 526
+        },
+        "url": "https://www.facebook.com/photo/?fbid=1065936806043796&set=a.188659823771503",
+        "id": "1065936806043796",
+        "feedback": {
+          "can_viewer_comment": false,
+          "id": "ZmVlZGJhY2s6MTA2NTkzNjgyNjA0Mzc5NA=="
+        },
+        "ocrText": "May be an image of text that says 'KICSI 10 lábas konténer NORMÁL 2,7mx 2,7mx3,2mx2,3m 20 lábas konténer NAGY 40 lábas magasított konténer 5,9m 2,35 2,39 5,9mx2,35mx2,39m m 11,75 2,35 2,69 m 2,3m 2,39m 2,69m 2,7m 2,7 3,2m 2,35m 5,9m r3 Terület: m² Ürtartalom: 16,1 m3 2,35m m 11,75m Terület: 14 m² Ürtartalom: 33,46 m3 KICSI Terület: 28 m² Ürtartalom: 75,3 32 ma NORMÁL 27.940 Ft/hó NAGY 34. 34.290 Ft/hó 46.990 Ft/hó'"
+      }
+    ],
+    "feedbackId": "ZmVlZGJhY2s6MTA2NTkzNjgyNjA0Mzc5NA==",
+    "paidPartnership": false,
+    "topLevelUrl": "https://www.facebook.com/100078824590345/posts/1065936826043794",
+    "facebookId": "100078824590345",
+    "pageAdLibrary": {
+      "id": "112595901357696",
+      "pamv_comms_data": null
+    },
+    "inputUrl": "https://www.facebook.com/kontigokontenerpark"
+  },
+  {
+    "facebookUrl": "https://www.facebook.com/kontigokontenerpark",
+    "postId": "1044802144823929",
+    "pageName": "kontigokontenerpark",
+    "url": "https://www.facebook.com/kontigokontenerpark/posts/pfbid02w7FDJQWsZKAgVjrBJuZg8rt1TjvYCvEPcmuEBVC9fMVw3nu4VsfdEKbk2xU7tW84l",
+    "time": "2026-08-02T17:45:03.000Z",
+    "timestamp": 1785692703,
+    "user": {
+      "id": "100078824590345",
+      "name": "Kontigo Konténerpark - Győr, Mosonmagyaróvár, Szombathely",
+      "profileUrl": "https://www.facebook.com/100078824590345",
+      "profilePic": "https://scontent-lga3-3.xx.fbcdn.net/v/t39.30808-1/275065741_112602191357067_1093549583968147263_n.jpg?stp=cp0_dst-jpg_tt6&cstp=mx484x484&ctp=s50x50&_nc_cat=106&ccb=1-7&_nc_sid=2d3e12&_nc_ohc=OjkFjKwZCEAQ7kNvwH-heDT&_nc_oc=AdrNxqAGLtN5DnyieO7OZMVeDufbofKW9nOBE4la9lNNkc91D1xZIcQt1s1FK9ItbwU&_nc_zt=24&_nc_ht=scontent-lga3-3.xx&_nc_gid=JDA20irdNnFSfqr00-GqYQ&_nc_ss=70180&oh=00_AQOchc15gIBBF1g2dPbcD24kiB7qehVgY9uCpT_9ZaK75g&oe=6AE2812A"
+    },
+    "collaborators": [],
+    "text": "🍂 Ősszel a szezon véget ér, de a tárolásra még nem találtál megoldást?\n📦 A KONTIGO Konténerparknál biztonságosan tárolhatod mindazt, amire csak a következő szezonban lesz újra szükséged. 🔐\n\nLegyen szó...\n✔️ vendéglátóipari bútorokról (asztalok, székek, napernyők)\n✔️ rendezvényeszközökről,  sátrakról\n✔️ sport- és vízi eszközökről (SUP, kajak, kerékpár)\n✔️ kertészeti vagy mezőgazdasági szezonális gépekről\n✔️ dekorációkról, reklámeszközökről\n✔️ webáruházak szezonális készleteiről\n\nÍgy több hely marad a telephelyeden, az eszközeid pedig rendezett, biztonságos környezetben várják a következő szezont.\n\nKonténerparkjaink: \n📍 Győr\n📍 Mosonmagyaróvár\n📍 Szombathely\n📐 Többféle konténerméret közül választhattok, így biztosan találtok az igényeitekhez megfelelőt. \nRészletek itt: 👉 www.kontigo.hu\n📞 Telefon: +36 20 356 0908",
+    "textReferences": [
+      {
+        "url": "https://l.facebook.com/l.php?u=http%3A%2F%2Fwww.kontigo.hu%2F&h=AUCh4gQ1-iFAh9A-CZ-hr3E6G7qHzOMIRoQRg6vjNMqhTLyrfo1DZ7WmQ5fRO-FeESo_qLuRZ96243rFHnSj_YWmVmvra0c9jOp8Iq1ReLstvAVXGI8UMr-6D52_YjV-5Gk8Kb6mGhzkBJCffXIiPpGl4LEL216i&s=1",
+        "external_url": "http://www.kontigo.hu/",
+        "web_link": {
+          "__typename": "ExternalWebLink",
+          "url": "http://www.kontigo.hu/",
+          "fbclid": null,
+          "lynx_mode": "ASYNCLAZY"
+        },
+        "mobileUrl": "https://lm.facebook.com/l.php?u=http%3A%2F%2Fwww.kontigo.hu%2F&h=AUCnKrIWvXr209sqAdkNsIVZM0GgepvdU7mNQGRupmxsOXR-IVS1mIXI_pUG0fQKh97dlM2UYmNFcdn-G7EHXFgGQZA4U2ttvy9WMuX_7gyYbKOLpU86_y3OGHuscb-nsv6XmIfx_amyHayqvGBauNPkM0zFsOQR&s=1",
+        "id": "NjQyMTgzOTU5MjA4MTA3Omh0dHBcYS8vd3d3LmtvbnRpZ28uaHUvOjpEZWZhdWx0Ojo6MTA0NDgwMjE0NDgyMzkyOTo="
+      }
+    ],
+    "link": "http://www.kontigo.hu/",
+    "likes": 0,
+    "shares": 0,
+    "topReactionsCount": 0,
+    "media": [
+      {
+        "thumbnail": "https://scontent-lga3-2.xx.fbcdn.net/v/t39.30808-6/762660861_1044473211523489_1631028926997360327_n.jpg?stp=dst-jpg_tt6&cstp=mx1215x1215&ctp=p526x296&_nc_cat=100&ccb=1-7&_nc_sid=127cfc&_nc_ohc=k81IFt_t69sQ7kNvwH2v4JA&_nc_oc=Adqk1N1kaNJLsrx5mUEF6Nqb2oQ85xSDGD047ALFGv1SbkBE_y2XOj71f81FFfh8v-4&_nc_zt=23&_nc_ht=scontent-lga3-2.xx&_nc_gid=JDA20irdNnFSfqr00-GqYQ&_nc_ss=70180&oh=00_AQPta8s_cwF7j2d9DBJLR2_7497HKS_omPFEdy89yDNVAg&oe=6AE29A0D",
+        "__typename": "Photo",
+        "__isMedia": "Photo",
+        "accent_color": "FF403227",
+        "photo_product_tags": [],
+        "photo_image": {
+          "uri": "https://scontent-lga3-2.xx.fbcdn.net/v/t39.30808-6/762660861_1044473211523489_1631028926997360327_n.jpg?stp=dst-jpg_tt6&cstp=mx1215x1215&ctp=p526x296&_nc_cat=100&ccb=1-7&_nc_sid=127cfc&_nc_ohc=k81IFt_t69sQ7kNvwH2v4JA&_nc_oc=Adqk1N1kaNJLsrx5mUEF6Nqb2oQ85xSDGD047ALFGv1SbkBE_y2XOj71f81FFfh8v-4&_nc_zt=23&_nc_ht=scontent-lga3-2.xx&_nc_gid=JDA20irdNnFSfqr00-GqYQ&_nc_ss=70180&oh=00_AQPta8s_cwF7j2d9DBJLR2_7497HKS_omPFEdy89yDNVAg&oe=6AE29A0D",
+          "height": 526,
+          "width": 526
+        },
+        "url": "https://www.facebook.com/photo/?fbid=1044802108157266&set=a.188659823771503",
+        "id": "1044802108157266",
+        "feedback": {
+          "can_viewer_comment": false,
+          "id": "ZmVlZGJhY2s6MTA0NDgwMjE0NDgyMzkyOQ=="
+        },
+        "ocrText": "No photo description available."
+      }
+    ],
+    "feedbackId": "ZmVlZGJhY2s6MTA0NDgwMjE0NDgyMzkyOQ==",
+    "paidPartnership": false,
+    "topLevelUrl": "https://www.facebook.com/100078824590345/posts/1044802144823929",
+    "facebookId": "100078824590345",
+    "pageAdLibrary": {
+      "id": "112595901357696",
+      "pamv_comms_data": null
+    },
+    "inputUrl": "https://www.facebook.com/kontigokontenerpark"
+  }
+]
