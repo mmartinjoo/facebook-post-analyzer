@@ -6,8 +6,11 @@ import json
 import logging
 from datetime import date
 
+from apify_client import ApifyClient
+from fastapi import Depends
 from psycopg.types.json import Jsonb
 
+from app.config import get_settings
 from app.pages import Page
 
 logger = logging.getLogger(__name__)
@@ -108,3 +111,7 @@ def mark_run(conn, run_id: int, *, status: str, items_count: int | None = None, 
         (status, items_count, error, status, status, run_id),
     )
     conn.commit()
+
+
+def get_apify_client(settings=Depends(get_settings)) -> ApifyClient:
+    return ApifyClient(settings.apify_api_token)
