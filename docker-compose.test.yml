@@ -1,0 +1,8 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: fpa_test
+    ports:
+      - "55432:5432"

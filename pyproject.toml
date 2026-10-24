@@ -1,0 +1,21 @@
+[project]
+name = "facebook_post_analyzer"
+version = "0.1.0"
+description = "Daily Facebook competitor post analyzer"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "anthropic",
+    "apify-client",
+    "psycopg[binary]",
+    "pydantic>=2",
+    "pydantic-settings",
+    "httpx",
+]
+
+[dependency-groups]
+dev = ["pytest", "pytest-asyncio", "uvicorn"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
