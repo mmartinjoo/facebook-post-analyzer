@@ -77,6 +77,8 @@ def test_creates_rows_for_each_page_and_all(db, settings, client):
     assert all(r["summary_model"] == "claude-haiku-5-5" and r["stats_computed_at"] for r in rs)
     kontigo = next(r for r in rs if r["page_id"] == kontigo_id(db))
     assert kontigo["post_count"] == 1 and kontigo["summary_sentence"].startswith("Kontigo")
+    assert (kontigo["sentence_input_tokens"], kontigo["sentence_output_tokens"]) == (200, 30)
+    assert kontigo["comments_input_tokens"] is None
     empty = next(r for r in rs if r["post_count"] == 0)
     assert "nem volt poszt 2026 szeptember" in empty["summary_sentence"]
     assert client.messages.create.call_count == 2  # Kontigo + all-pages; zero-post pages skip the LLM
@@ -95,11 +97,14 @@ def test_comments_clustering_only_when_new_comments(db, settings, client):
     assert row["comments_model"] == "claude-sonnet-5-5" and row["comments_computed_at"] is not None
     assert row["top_questions"][0]["text"] == "Mennyibe kerül?"
     first_computed = row["comments_computed_at"]
+    assert (row["comments_input_tokens"], row["comments_output_tokens"]) == (100, 50)
+    assert (row["sentence_input_tokens"], row["sentence_output_tokens"]) == (200, 30)
 
     assert slug_run()["clustered"] == 0
     assert client.messages.parse.call_count == 1
     row = rows(db)[0]
     assert row["comments_computed_at"] == first_computed and row["comments_model"] == "claude-sonnet-5-5"
+    assert (row["comments_input_tokens"], row["comments_output_tokens"]) == (100, 50)  # kept, not re-clustered
     assert row["top_questions"][0]["text"] == "Mennyibe kerül?"
 
     add_comments(db, pid, ["Hol van?"], scraped_at=datetime.now(timezone.utc) + timedelta(minutes=5))

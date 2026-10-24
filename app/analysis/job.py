@@ -12,6 +12,10 @@ from app.jobs.runner import JOB_ANALYZE, TimeBudget, acquire_lock, continue_job,
 
 logger = logging.getLogger(__name__)
 
+# the Anthropic client timeout is 60 s: take no new post when less than this is left, so an in-flight
+# call always finishes inside the budget (and the budget inside Vercel's maxDuration)
+ANALYZE_RESERVE_SECONDS = 65
+
 FIELDS = [
     "celkozonseg", "ceges_szegmens", "lakossagi_szegmens", "use_case", "fajdalompont", "szezonalis_horog",
     "kontener_meretek", "ar_megjelenik", "arak", "ar_ertek", "ar_egyseg", "arhorgony", "ajanlat_mechanika",
@@ -68,13 +72,13 @@ def run_analyze_job(conn, settings, client, budget: TimeBudget, *, prompt_versio
     attempted: list[int] = []
     try:
         system_prompt = load_prompt(prompt_version)
-        while not budget.expired():
+        while budget.remaining() >= ANALYZE_RESERVE_SECONDS:
             rows = conn.execute(PENDING, (attempted, batch_size)).fetchall()
             if not rows:
                 conn.commit()
                 break
             for row in rows:
-                if budget.expired():
+                if budget.remaining() < ANALYZE_RESERVE_SECONDS:
                     break
                 attempted.append(row["id"])
                 try:

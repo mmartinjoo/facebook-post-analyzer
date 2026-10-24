@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from app.ingest.comments import build_posts_by_url, map_comment_item, upsert_comments
+from app.ingest.comments import build_posts_by_fb_id, build_posts_by_url, map_comment_item, upsert_comments
 from app.pages import load_active_pages
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -63,3 +63,13 @@ def test_upsert_in_chunks(db, setup, monkeypatch):
     assert len(records) > 2
     assert upsert_comments(db, records) == len(records)
     assert db.execute("SELECT count(*) AS n FROM comments").fetchone()["n"] == len(records)
+
+
+def test_fallback_to_facebook_id_when_url_does_not_match(db, setup):
+    _, pages_by_id, _ = setup
+    post_id = db.execute("SELECT id, page_id FROM posts WHERE fb_post_id = 'p1'").fetchone()
+    by_fb_id = build_posts_by_fb_id([{"id": post_id["id"], "page_id": post_id["page_id"], "fb_post_id": "p1"}])
+    item = {**ITEMS[0], "facebookUrl": "https://www.facebook.com/somewhere/else", "facebookId": "p1"}
+    with pytest.raises(ValueError):
+        map_comment_item(item, {}, pages_by_id)
+    assert map_comment_item(item, {}, pages_by_id, by_fb_id).post_id == post_id["id"]

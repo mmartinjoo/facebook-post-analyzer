@@ -4,7 +4,8 @@ Field sources (probe 2026-10-24: all 3 fixture posts returned only an error item
 "No public data available without Facebook login", so the fixture is hand-built from
 the actor's documented output; verify on the first real run):
 - fb_comment_id: `commentId` (fallback `id`)
-- post: `facebookUrl` (fallback `inputUrl`), normalised, matched against posts.url
+- post: `facebookUrl` (fallback `inputUrl`), normalised, matched against posts.url;
+  fallback: `facebookId` matched against posts.fb_post_id
 - text: `text`
 - posted_at: `date` (ISO, may end in Z) -> aware UTC
 - likes_count: `likesCount` (a STRING in the actor output)
@@ -49,6 +50,15 @@ def build_posts_by_url(rows: list[dict]) -> dict[str, dict]:
     }
 
 
+def build_posts_by_fb_id(rows: list[dict]) -> dict[str, dict]:
+    """Index posts (dicts with fb_post_id, id, page_id) by fb_post_id: fallback when a comment's URL does not match."""
+    return {
+        str(r["fb_post_id"]): {"id": r["id"], "page_id": r["page_id"]}
+        for r in rows
+        if r.get("fb_post_id")
+    }
+
+
 def _parse_date(value) -> datetime | None:
     if not value:
         return None
@@ -56,14 +66,22 @@ def _parse_date(value) -> datetime | None:
     return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)
 
 
-def map_comment_item(item: dict, posts_by_url: dict[str, dict], pages_by_id: dict[int, Page]) -> CommentRecord:
-    """`posts_by_url` must be keyed by NORMALISED url (see `build_posts_by_url`)."""
+def map_comment_item(
+    item: dict,
+    posts_by_url: dict[str, dict],
+    pages_by_id: dict[int, Page],
+    posts_by_fb_id: dict[str, dict] | None = None,
+) -> CommentRecord:
+    """`posts_by_url` must be keyed by NORMALISED url (see `build_posts_by_url`); when the url does not match,
+    the item's `facebookId` is looked up in `posts_by_fb_id` (see `build_posts_by_fb_id`)."""
     comment_id = item.get("commentId") or item.get("id")
     if not comment_id:
         raise ValueError(f"comment item without id (url {item.get('facebookUrl') or item.get('inputUrl')})")
     comment_id = str(comment_id)
     url = item.get("facebookUrl") or item.get("inputUrl")
     post = posts_by_url.get(normalize_post_url(url)) if url else None
+    if post is None and posts_by_fb_id and item.get("facebookId"):
+        post = posts_by_fb_id.get(str(item["facebookId"]))
     if post is None:
         raise ValueError(f"comment {comment_id}: no post for url {url}")
 

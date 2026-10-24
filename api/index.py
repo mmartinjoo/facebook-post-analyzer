@@ -97,6 +97,11 @@ def reanalyze_job(
     settings: Settings = Depends(get_settings),
     conn=Depends(get_db),
 ) -> dict:
+    if prompt_version != settings.prompt_version:
+        # the analyze job always uses the deployed PROMPT_VERSION; resetting for another one would loop forever
+        raise HTTPException(
+            status_code=400, detail=f"set PROMPT_VERSION={prompt_version} in the environment and redeploy first"
+        )
     try:
         n = reanalyze(conn, prompt_version)
     except FileNotFoundError:

@@ -57,17 +57,25 @@ def _analysis(db, post_id):
     )
 
 
-def test_reanalyze_resets_posts_without_version(client, db, calls):
+def test_reanalyze_resets_posts_without_version(client, db, calls, settings):
     a, b, c = _post(db, "a", "done"), _post(db, "b", "done"), _post(db, "c", "skipped")
     _analysis(db, a)
     _analysis(db, b)
     db.execute("INSERT INTO monthly_summaries (page_id, month) VALUES (NULL, '2025-03-01')")
     db.commit()
 
-    # unknown prompt version: 400 and nothing changed
+    # version differs from the deployed PROMPT_VERSION: 400 and nothing changed
+    r = client.post("/api/jobs/reanalyze?prompt_version=v2", headers=ADMIN)
+    assert r.status_code == 400 and "set PROMPT_VERSION=v2" in r.json()["detail"]
+    assert db.execute("SELECT count(*) AS n FROM posts WHERE analysis_status = 'pending'").fetchone()["n"] == 0
+    assert calls == []
+
+    # unknown prompt version (no prompt file): 400 and nothing changed
+    settings.prompt_version = "v9"
     assert client.post("/api/jobs/reanalyze?prompt_version=v9", headers=ADMIN).status_code == 400
     assert db.execute("SELECT count(*) AS n FROM posts WHERE analysis_status = 'pending'").fetchone()["n"] == 0
     assert calls == []
+    settings.prompt_version = "v1"
 
     # v1 already analyzed: nothing to reset
     r = client.post("/api/jobs/reanalyze?prompt_version=v1", headers=ADMIN)
@@ -78,6 +86,7 @@ def test_reanalyze_resets_posts_without_version(client, db, calls):
     from app.analysis.prompt import PROMPTS_DIR
     f = PROMPTS_DIR / "post_extraction_v2.md"
     f.write_text("x")
+    settings.prompt_version = "v2"
     try:
         r = client.post("/api/jobs/reanalyze?prompt_version=v2", headers=ADMIN)
     finally:

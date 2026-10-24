@@ -22,8 +22,9 @@ class ExtractionResult:
 
 
 def get_anthropic_client(settings: Settings = Depends(get_settings)) -> anthropic.Anthropic:
-    # bounded timeout/retries so one hanging call cannot outlive Vercel's 300 s maxDuration
-    return anthropic.Anthropic(api_key=settings.anthropic_api_key, timeout=60, max_retries=1)
+    # one call is bounded to 60 s so it fits the jobs' budget reserve; no SDK retries -- the analyze job's
+    # attempt counter (and the summarize drain's stale flag) is the retry
+    return anthropic.Anthropic(api_key=settings.anthropic_api_key, timeout=60, max_retries=0)
 
 
 def _call(client, *, system_prompt, page_name, posted_at, text, image_urls, notes) -> ExtractionResult:

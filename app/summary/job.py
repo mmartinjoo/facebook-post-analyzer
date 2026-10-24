@@ -24,9 +24,11 @@ SUMMARIZE_RESERVE_SECONDS = 130
 STAT_COLUMNS = list(SummaryStats.__dataclass_fields__)
 COLUMNS = [
     "page_id", "month", *STAT_COLUMNS, "top_questions", "top_objections", "summary_sentence",
-    "summary_model", "comments_model", "prompt_version", "comments_computed_at",
+    "summary_model", "comments_model", "sentence_input_tokens", "sentence_output_tokens",
+    "comments_input_tokens", "comments_output_tokens", "prompt_version", "comments_computed_at",
 ]
-KEEP_IF_NULL = {"comments_model", "comments_computed_at"}
+# clustering-related columns keep their old value when this run did not re-cluster
+KEEP_IF_NULL = {"comments_model", "comments_input_tokens", "comments_output_tokens", "comments_computed_at"}
 # comments_computed_at is bound as a boolean "clustered" flag -> DB now() or NULL (keeps the old value)
 UPSERT = (
     f"INSERT INTO monthly_summaries ({', '.join(COLUMNS)}, stats_computed_at, computed_at, stale) "
@@ -123,15 +125,16 @@ def _summarize_target(
     existing = conn.execute(EXISTING, (page_id, month)).fetchone()
     insights = _stored_insights(existing)
     clustered = False
+    comments_usage = {"input_tokens": None, "output_tokens": None}
     if not stats_only and stats.comment_count >= 3:
         latest = _latest_scraped_at(conn, page_id, month)
         computed_at = existing["comments_computed_at"] if existing else None
         if computed_at is None or (latest is not None and latest > computed_at):
             comments = _load_comments(conn, page_id, month)
-            insights, usage = cluster_comments(
+            insights, comments_usage = cluster_comments(
                 client, comments=comments, page_name=page.name if page else None, total_count=stats.comment_count
             )
-            _add_usage(tokens, "sonnet", usage)
+            _add_usage(tokens, "sonnet", comments_usage)
             clustered = True
     sentence, usage = summary_sentence(
         client, page_name=page.name if page else None, month=month, stats=stats, insights=insights
@@ -146,7 +149,9 @@ def _summarize_target(
         UPSERT,
         [
             page_id, month, *stat_values, Jsonb(questions), Jsonb(objections), sentence, HAIKU,
-            SONNET if clustered else None, settings.prompt_version, clustered, still_stale,
+            SONNET if clustered else None, usage["input_tokens"], usage["output_tokens"],
+            comments_usage["input_tokens"], comments_usage["output_tokens"],
+            settings.prompt_version, clustered, still_stale,
         ],
     )
     conn.commit()
