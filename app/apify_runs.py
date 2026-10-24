@@ -1,8 +1,12 @@
+import json
+import logging
 from datetime import date
 
 from psycopg.types.json import Jsonb
 
 from app.pages import Page
+
+logger = logging.getLogger(__name__)
 
 POSTS_ACTOR = "apify/facebook-posts-scraper"
 COMMENTS_ACTOR = "apify/facebook-comments-scraper"
@@ -29,16 +33,30 @@ def _webhooks(settings) -> list[dict]:
     ]
 
 
-def _record_run(conn, apify_run_id: str, actor: str, kind: str, params: dict) -> int:
-    row = conn.execute(
-        """
-        INSERT INTO scrape_runs (apify_run_id, actor, kind, params, status, started_at)
-        VALUES (%s, %s, %s, %s, 'started', now())
-        RETURNING id
-        """,
-        (apify_run_id, actor, kind, Jsonb(params)),
-    ).fetchone()
-    conn.commit()
+def _start_and_record(
+    conn, settings, client, actor_id: str, run_input: dict, actor: str, kind: str, params: dict
+) -> int:
+    params_json = json.dumps(params, default=str)  # fail before starting the run
+    run = client.actor(actor_id).start(run_input=run_input, webhooks=_webhooks(settings))
+    apify_run_id = run["id"]
+    try:
+        row = conn.execute(
+            """
+            INSERT INTO scrape_runs (apify_run_id, actor, kind, params, status, started_at)
+            VALUES (%s, %s, %s, %s, 'started', now())
+            RETURNING id
+            """,
+            (apify_run_id, actor, kind, Jsonb(json.loads(params_json))),
+        ).fetchone()
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        logger.exception("scrape_runs insert failed for apify run %s; aborting it", apify_run_id)
+        try:
+            client.run(apify_run_id).abort()
+        except Exception:
+            logger.exception("could not abort apify run %s", apify_run_id)
+        raise
     return row["id"]
 
 
@@ -46,30 +64,24 @@ def start_posts_run(
     conn, settings, client, pages: list[Page], newer_than: date, kind: str, results_limit: int
 ) -> int:
     page_urls = [p.facebook_url for p in pages]
-    run = client.actor(POSTS_ACTOR).start(
-        run_input={
-            "startUrls": [{"url": u} for u in page_urls],
-            "onlyPostsNewerThan": newer_than.isoformat(),
-            "resultsLimit": results_limit,
-        },
-        webhooks=_webhooks(settings),
-    )
+    run_input = {
+        "startUrls": [{"url": u} for u in page_urls],
+        "onlyPostsNewerThan": newer_than.isoformat(),
+        "resultsLimit": results_limit,
+    }
     params = {"since": newer_than.isoformat(), "page_urls": page_urls}
-    return _record_run(conn, run["id"], "posts", kind, params)
+    return _start_and_record(conn, settings, client, POSTS_ACTOR, run_input, "posts", kind, params)
 
 
 def start_comments_run(
     conn, settings, client, post_urls: list[str], kind: str, params: dict, results_limit: int = 100
 ) -> int:
-    run = client.actor(COMMENTS_ACTOR).start(
-        run_input={
-            "startUrls": [{"url": u} for u in post_urls],
-            "resultsLimit": results_limit,
-            "includeNestedComments": True,
-        },
-        webhooks=_webhooks(settings),
-    )
-    return _record_run(conn, run["id"], "comments", kind, params)
+    run_input = {
+        "startUrls": [{"url": u} for u in post_urls],
+        "resultsLimit": results_limit,
+        "includeNestedComments": True,
+    }
+    return _start_and_record(conn, settings, client, COMMENTS_ACTOR, run_input, "comments", kind, params)
 
 
 def get_run_by_apify_id(conn, apify_run_id: str) -> dict | None:

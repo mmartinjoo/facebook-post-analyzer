@@ -1,6 +1,8 @@
 from datetime import date
 from unittest.mock import MagicMock
 
+import pytest
+
 from app.apify_runs import POSTS_ACTOR, get_run_by_apify_id, mark_run, start_comments_run, start_posts_run
 from app.pages import load_active_pages, resolve_page
 
@@ -61,3 +63,22 @@ def test_resolve_page_by_url_variants(db):
         assert resolve_page(pages, url=url).slug == "kontigo"
     assert resolve_page(pages, url="https://facebook.com/unknown") is None
     assert resolve_page(pages, name=pages[0].name.upper()) is pages[0]
+
+
+def test_start_comments_run_serializes_date_params(db, settings):
+    client = make_client()
+    params = {"from": date(2026, 7, 1), "to": date(2026, 9, 1), "month": "2026-07"}
+    run_id = start_comments_run(db, settings, client, ["https://fb.com/p/1"], "backfill_comments", params)
+    row = db.execute("SELECT params FROM scrape_runs WHERE id = %s", (run_id,)).fetchone()
+    assert row["params"] == {"from": "2026-07-01", "to": "2026-09-01", "month": "2026-07"}
+
+
+def test_failed_insert_aborts_apify_run(db, settings):
+    client = make_client()
+    pages = load_active_pages(db)
+    with pytest.raises(Exception):
+        start_posts_run(db, settings, client, pages, date(2022, 1, 1), "bogus", 10)
+    client.run.assert_called_once_with("run1")
+    client.run.return_value.abort.assert_called_once_with()
+    assert db.execute("SELECT count(*) AS n FROM scrape_runs").fetchone()["n"] == 0
+    assert db.execute("select 1 AS x").fetchone()["x"] == 1
