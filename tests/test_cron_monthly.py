@@ -66,5 +66,7 @@ def test_monthly_without_posts_goes_straight_to_summarize(client, db, calls, api
     r = client.get("/api/cron/monthly", headers=AUTH)
     assert r.status_code == 200
     assert r.json()["run_id"] is None
-    assert calls == [("/api/jobs/summarize", {"month": previous_month().strftime("%Y-%m")})]
+    assert calls == [("/api/jobs/summarize", None)]
+    stale = db.execute("SELECT DISTINCT month FROM monthly_summaries WHERE stale").fetchall()
+    assert [r["month"] for r in stale] == [previous_month()]
     apify.actor.return_value.start.assert_not_called()

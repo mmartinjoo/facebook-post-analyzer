@@ -9,6 +9,7 @@ from app.ingest.comments import build_posts_by_url, map_comment_item, upsert_com
 from app.ingest.posts import map_post_item, upsert_posts
 from app.jobs.runner import continue_job
 from app.pages import load_active_pages
+from app.summary.job import mark_stale
 from app.timeutil import months_between
 
 logger = logging.getLogger(__name__)
@@ -65,7 +66,9 @@ def _process_comments_run(conn, settings, client, run: dict, payload: dict) -> d
     else:
         months = []
     for month in months:
-        continue_job(settings, "/api/jobs/summarize", {"month": month})
+        mark_stale(conn, datetime.strptime(month, "%Y-%m").date())
+    if months:
+        continue_job(settings, "/api/jobs/summarize")
     return {"run_id": run["id"], "comments": count, "skipped_items": len(errors)}
 
 

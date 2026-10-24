@@ -112,12 +112,16 @@ def test_backfill_comments_one_run_per_month_with_posts(settings, db):
     assert all(r["params"]["from"] == "2026-06" and r["params"]["to"] == "2026-09" for r in runs)
 
 
-def test_summarize_range_chains_each_month(settings, calls):
+def test_summarize_range_marks_stale_and_drains_once(settings, db, calls):
     from datetime import date
 
-    months = backfill_module.summarize_range(settings, from_month=date(2026, 1, 1), to_month=date(2026, 3, 1))
+    months = backfill_module.summarize_range(db, settings, from_month=date(2026, 1, 1), to_month=date(2026, 3, 1))
     assert months == ["2026-01", "2026-02", "2026-03"]
-    assert calls == [("/api/jobs/summarize", {"month": m}) for m in months]
+    assert calls == [("/api/jobs/summarize", None)]
+    rows = db.execute("SELECT month, count(*) AS n FROM monthly_summaries WHERE stale GROUP BY month ORDER BY month").fetchall()
+    assert [(r["month"], r["n"]) for r in rows] == [
+        (date(2026, 1, 1), 6), (date(2026, 2, 1), 6), (date(2026, 3, 1), 6),
+    ]
 
 
 def test_range_routes(client, db, calls):
@@ -127,5 +131,6 @@ def test_range_routes(client, db, calls):
     assert client.post("/api/jobs/summarize-range?from=2026-01&to=2026-02").status_code == 401
     r = client.post("/api/jobs/summarize-range?from=2026-01&to=2026-02", headers=h)
     assert r.json() == {"months": ["2026-01", "2026-02"]}
+    assert db.execute("SELECT count(*) AS n FROM monthly_summaries WHERE stale").fetchone()["n"] == 12
     r = client.post("/api/jobs/backfill-comments?from=2026-01&to=2026-02", headers=h)
     assert r.json() == {"run_ids": []}

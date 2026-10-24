@@ -11,7 +11,7 @@ from app.config import get_settings
 from app.db import get_db
 from app.jobs.runner import TimeBudget
 from app.summary.comments_llm import CommentInsights, Insight
-from app.summary.job import run_summarize_job
+from app.summary.job import mark_stale, run_summarize_job
 from tests.fixtures.seed_month import seed
 
 M = date(2026, 9, 1)
@@ -132,7 +132,7 @@ def test_upsert_overwrites_existing(db, settings, client):
 
 def test_budget_expiry_releases_lock_then_continues(db, settings, client, monkeypatch):
     budget = MagicMock()
-    budget.expired.side_effect = [False, False, True]
+    budget.remaining.side_effect = [200, 200, 0]  # two targets, then less than the reserve is left
     lock_held, calls = [], []
 
     def fake_continue(*a, **k):
@@ -179,3 +179,94 @@ def test_failing_target_does_not_abort_run(db, settings, client):
     retry = run(db, settings, client)
     assert retry["failed"] == 0 and retry["clustered"] == 1  # only the failed target re-clusters
     assert len(rows(db)) == 6
+
+
+MONTHS = [date(2026, 7, 1), date(2026, 8, 1), date(2026, 9, 1)]
+
+
+def stale_count(db):
+    return db.execute("select count(*) as n from monthly_summaries where stale").fetchone()["n"]
+
+
+def test_mark_stale_creates_placeholders_and_flags_existing(db, settings, client):
+    assert mark_stale(db, M) == 6
+    assert stale_count(db) == 6
+    run(db, settings, client)
+    assert stale_count(db) == 0
+    assert mark_stale(db, M, page_id=kontigo_id(db)) == 2  # the page + the all-pages row
+    flagged = db.execute("select page_id from monthly_summaries where stale order by page_id nulls last").fetchall()
+    assert [r["page_id"] for r in flagged] == [kontigo_id(db), None]
+
+
+def test_drain_processes_all_stale_months(db, settings, client, no_continue):
+    for m in MONTHS:
+        seed(db, page_slug="kontigo", month=m, posts=[{"reactions_count": 3}])
+        mark_stale(db, m)
+    result = run_summarize_job(db, settings, client, TimeBudget(1000))
+    assert result["mode"] == "drain"
+    assert (result["processed"], result["failed"], result["remaining"]) == (18, 0, 0)
+    rs = rows(db)
+    assert len(rs) == 18 and all(r["stale"] is False and r["summary_sentence"] for r in rs)
+    assert {r["month"] for r in rs} == set(MONTHS)
+    assert no_continue == []
+    assert db.execute("select count(*) as n from job_locks").fetchone()["n"] == 0
+
+
+def test_drain_keeps_stale_while_posts_pending(db, settings, client, no_continue):
+    seed(db, page_slug="kontigo", month=M, posts=[{}, {"analysis_status": "pending"}])
+    mark_stale(db, M)
+    result = run_summarize_job(db, settings, client, TimeBudget(1000))
+    assert result["processed"] == 6 and result["remaining"] == 0
+    still = db.execute("select page_id from monthly_summaries where stale order by page_id nulls last").fetchall()
+    assert [r["page_id"] for r in still] == [kontigo_id(db), None]  # Kontigo + all-pages wait for the analysis
+    assert no_continue == []  # already tried in this run -> left for the next drain, no self-loop
+
+    db.execute("update posts set analysis_status = 'done' where analysis_status = 'pending'")
+    db.commit()
+    again = run_summarize_job(db, settings, client, TimeBudget(1000))
+    assert again["processed"] == 2 and stale_count(db) == 0
+
+
+def test_drain_failed_target_stays_stale(db, settings, client):
+    [pid] = seed(db, page_slug="kontigo", month=M, posts=[{}])
+    add_comments(db, pid, ["Mennyibe kerül?", "Mennyi az ár?", "Drága"])
+    mark_stale(db, M)
+    normal = client.messages.parse.return_value
+    client.messages.parse.side_effect = [RuntimeError("boom"), normal]
+    result = run_summarize_job(db, settings, client, TimeBudget(1000))
+    assert result["failed"] == 1 and result["processed"] == 5 and result["remaining"] == 0
+    assert stale_count(db) == 1
+    client.messages.parse.side_effect = None
+    assert run_summarize_job(db, settings, client, TimeBudget(1000))["processed"] == 1
+    assert stale_count(db) == 0
+
+
+def test_drain_budget_expired_continues_without_month(db, settings, client, monkeypatch):
+    mark_stale(db, M)
+    lock_held, calls = [], []
+
+    def fake_continue(*a, **k):
+        lock_held.append(db.execute("select count(*) as n from job_locks").fetchone()["n"])
+        calls.append((a, k))
+
+    monkeypatch.setattr("app.summary.job.continue_job", fake_continue)
+    result = run_summarize_job(db, settings, client, TimeBudget(0))
+    assert result["processed"] == 0 and result["remaining"] == 6
+    assert lock_held == [0]
+    (args, kwargs), = calls
+    assert args[1:] == ("/api/jobs/summarize",) and kwargs == {}
+
+
+def test_route_without_month_drains(db, settings, client):
+    mark_stale(db, M)
+    app.dependency_overrides[get_settings] = lambda: settings
+    app.dependency_overrides[get_db] = lambda: db
+    app.dependency_overrides[get_anthropic_client] = lambda: client
+    try:
+        http = TestClient(app)
+        h = {"X-Admin-Secret": "admin-s"}
+        assert http.post("/api/jobs/summarize?page=kontigo", headers=h).status_code == 400
+        r = http.post("/api/jobs/summarize", headers=h)
+        assert r.status_code == 200 and r.json()["mode"] == "drain" and r.json()["processed"] == 6
+    finally:
+        app.dependency_overrides.clear()

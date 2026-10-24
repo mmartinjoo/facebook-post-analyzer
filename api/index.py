@@ -102,14 +102,16 @@ def reanalyze_job(
 
 @app.post("/api/jobs/summarize", dependencies=[Depends(require_admin)])
 def summarize_job(
-    month: str,
+    month: str | None = None,
     page: str | None = None,
     stats_only: str | None = None,
     settings: Settings = Depends(get_settings),
     conn=Depends(get_db),
     client=Depends(get_anthropic_client),
 ) -> dict:
-    month_date = _parse_month(month)
+    if month is None and page:
+        raise HTTPException(status_code=400, detail="page requires month")
+    month_date = _parse_month(month) if month else None  # no month -> drain the stale-row queue
     budget = TimeBudget(settings.job_time_budget_seconds)
     try:
         return run_summarize_job(
@@ -137,6 +139,7 @@ def summarize_range_job(
     from_: str = Query(alias="from"),
     to: str = Query(),
     settings: Settings = Depends(get_settings),
+    conn=Depends(get_db),
 ) -> dict:
     start, end = _parse_range(from_, to)
-    return {"months": summarize_range(settings, from_month=start, to_month=end)}
+    return {"months": summarize_range(conn, settings, from_month=start, to_month=end)}

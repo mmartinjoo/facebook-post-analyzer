@@ -8,12 +8,10 @@ from app.apify_runs import start_comments_run, start_posts_run
 from app.ingest.comments import posts_in_month
 from app.jobs.runner import continue_job
 from app.pages import load_active_pages
+from app.summary.job import mark_stale
 from app.timeutil import BUDAPEST, months_between, previous_month
 
-
-def stale_months(conn) -> list[date]:
-    rows = conn.execute("SELECT DISTINCT month FROM monthly_summaries WHERE stale ORDER BY month").fetchall()
-    return [r["month"] for r in rows]
+logger = logging.getLogger(__name__)
 
 
 def run_daily(conn, settings, client) -> dict:
@@ -28,12 +26,15 @@ def run_daily(conn, settings, client) -> dict:
         kind="daily",
         results_limit=200,
     )
-    continue_job(settings, "/api/jobs/analyze")
-    months = sorted({today.replace(day=1), previous_month(today)} | set(stale_months(conn)))
+    # the last two months get late engagement / analyses; queue them, then ONE drain also picks up
+    # every other stale month (reanalyze, failed or pending-blocked targets)
+    months = [previous_month(today), today.replace(day=1)]
+    for m in months:
+        mark_stale(conn, m)
     labels = [m.strftime("%Y-%m") for m in months]
-    for label in labels:
-        continue_job(settings, "/api/jobs/summarize", {"month": label, "stats_only": "1"})
-    logging.info(
+    continue_job(settings, "/api/jobs/analyze")
+    continue_job(settings, "/api/jobs/summarize")
+    logger.info(
         json.dumps(
             {"job": "cron_daily", "run_id": run_id, "months": labels, "elapsed_s": round(time.monotonic() - started, 2)}
         )
@@ -68,13 +69,14 @@ def run_monthly(conn, settings, client) -> dict:
     posts = posts_in_month(conn, m)
     if not posts:
         run_id = None
-        continue_job(settings, "/api/jobs/summarize", {"month": label})
+        mark_stale(conn, m)
+        continue_job(settings, "/api/jobs/summarize")
     else:
         run_id = start_comments_run(
             conn, settings, client, [p["url"] for p in posts],
             kind="monthly_comments", params={"month": label}, results_limit=100,
         )
-    logging.info(
+    logger.info(
         json.dumps(
             {"job": "cron_monthly", "run_id": run_id, "month": label, "posts": len(posts),
              "elapsed_s": round(time.monotonic() - started, 2)}
@@ -98,7 +100,7 @@ def backfill_comments(conn, settings, client, *, from_month: date, to_month: dat
                 results_limit=100,
             )
         )
-    logging.info(
+    logger.info(
         json.dumps(
             {"job": "backfill_comments", "run_ids": run_ids, "elapsed_s": round(time.monotonic() - started, 2)}
         )
@@ -106,8 +108,9 @@ def backfill_comments(conn, settings, client, *, from_month: date, to_month: dat
     return run_ids
 
 
-def summarize_range(settings, *, from_month: date, to_month: date) -> list[str]:
-    labels = [m.strftime("%Y-%m") for m in months_between(from_month, to_month)]
-    for label in labels:
-        continue_job(settings, "/api/jobs/summarize", {"month": label})
-    return labels
+def summarize_range(conn, settings, *, from_month: date, to_month: date) -> list[str]:
+    months = months_between(from_month, to_month)
+    for m in months:
+        mark_stale(conn, m)
+    continue_job(settings, "/api/jobs/summarize")
+    return [m.strftime("%Y-%m") for m in months]

@@ -42,12 +42,12 @@ def test_daily_starts_run_and_chains(client, db, calls):
     assert len(runs) == 1 and runs[0]["kind"] == "daily"
     assert runs[0]["params"]["since"] == (today - timedelta(days=14)).isoformat()
     cur, prev = today.replace(day=1), previous_month(today)
-    assert calls == [
-        ("/api/jobs/analyze", None),
-        ("/api/jobs/summarize", {"month": "2025-03", "stats_only": "1"}),
-        ("/api/jobs/summarize", {"month": prev.strftime("%Y-%m"), "stats_only": "1"}),
-        ("/api/jobs/summarize", {"month": cur.strftime("%Y-%m"), "stats_only": "1"}),
-    ]
+    # one param-less drain call; no per-month summarize calls
+    assert calls == [("/api/jobs/analyze", None), ("/api/jobs/summarize", None)]
+    assert r.json()["summarize_months"] == [prev.strftime("%Y-%m"), cur.strftime("%Y-%m")]
+    stale = db.execute("SELECT month, count(*) AS n FROM monthly_summaries WHERE stale GROUP BY month").fetchall()
+    # the two recent months are queued for all 5 pages + the all-pages row; the old stale month stays queued
+    assert {r["month"]: r["n"] for r in stale} == {prev: 6, cur: 6, datetime(2025, 3, 1).date(): 1}
 
 
 def test_daily_requires_cron_secret(client):

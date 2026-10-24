@@ -117,7 +117,22 @@ def test_comments_run_ingests_and_continues_summarize(client, db, continued):
     assert r.status_code == 200
     assert db.execute("SELECT count(*) AS n FROM comments").fetchone()["n"] == len(comment_items)
     assert _run(db)["status"] == "processed"
-    assert continued == [(continued[0][0], "/api/jobs/summarize", {"month": "2026-09"})]
+    assert [c[1:] for c in continued] == [("/api/jobs/summarize",)]  # one param-less drain call
+    stale = db.execute("SELECT month, count(*) AS n FROM monthly_summaries WHERE stale GROUP BY month").fetchall()
+    assert [(r["month"].isoformat(), r["n"]) for r in stale] == [("2026-09-01", 6)]
+
+
+def test_backfill_comments_run_marks_each_month_and_drains_once(client, db, continued):
+    db.execute(
+        "INSERT INTO scrape_runs (apify_run_id, actor, kind, params, status) "
+        "VALUES ('run1', 'comments', 'backfill_comments', '{\"from\": \"2026-07\", \"to\": \"2026-09\"}', 'started')"
+    )
+    db.commit()
+    client.app.dependency_overrides[get_apify_client]().dataset.return_value.iterate_items.return_value = []
+    assert client.post("/api/webhooks/apify?token=hook-s", json=_payload()).status_code == 200
+    assert [c[1:] for c in continued] == [("/api/jobs/summarize",)]
+    stale = db.execute("SELECT DISTINCT month FROM monthly_summaries WHERE stale ORDER BY month").fetchall()
+    assert [r["month"].isoformat() for r in stale] == ["2026-07-01", "2026-08-01", "2026-09-01"]
 
 
 @pytest.mark.parametrize("with_valid", [True, False])
@@ -148,4 +163,4 @@ def test_comments_run_tolerates_error_items(client, db, continued, with_valid):
     assert "items skipped" in run["error"]
     expected = len(comment_items) if with_valid else 0
     assert db.execute("SELECT count(*) AS n FROM comments").fetchone()["n"] == expected
-    assert [c[1:] for c in continued] == [("/api/jobs/summarize", {"month": "2026-09"})]
+    assert [c[1:] for c in continued] == [("/api/jobs/summarize",)]
