@@ -54,7 +54,6 @@ def _process_comments_run(conn, settings, client, run: dict, payload: dict) -> d
     error = None
     if errors:
         error = f"{len(errors)} items skipped: " + "; ".join(errors[:5])
-    mark_run(conn, run["id"], status="processed", items_count=total, error=error)
 
     params = run.get("params") or {}
     if params.get("month"):
@@ -64,8 +63,11 @@ def _process_comments_run(conn, settings, client, run: dict, payload: dict) -> d
         months = [m.strftime("%Y-%m") for m in months_between(parse(params["from"]), parse(params["to"]))]
     else:
         months = []
+    # queue the months BEFORE marking the run processed: if this fails, the run is marked failed and can be
+    # re-delivered (a processed run can no longer be downgraded)
     for month in months:
         mark_stale(conn, datetime.strptime(month, "%Y-%m").date())
+    mark_run(conn, run["id"], status="processed", items_count=total, error=error)
     return {"run_id": run["id"], "comments": count, "skipped_items": len(errors), "months": months}
 
 

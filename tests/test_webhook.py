@@ -114,6 +114,25 @@ def test_continuation_error_does_not_fail_processed_run(settings, db, monkeypatc
     assert _run(db)["status"] == "processed" and _post_count(db) == 3
 
 
+def test_comments_mark_stale_failure_marks_run_failed(settings, db, monkeypatch):
+    monkeypatch.setattr(webhook_module, "continue_job", lambda *a, **k: None)
+
+    def boom(*a, **k):
+        raise RuntimeError("db hiccup")
+
+    monkeypatch.setattr(webhook_module, "mark_stale", boom)
+    db.execute(
+        "INSERT INTO scrape_runs (apify_run_id, actor, kind, params, status) "
+        "VALUES ('run1', 'comments', 'monthly_comments', '{\"month\": \"2026-09\"}', 'started')"
+    )
+    db.commit()
+    apify = MagicMock()
+    apify.dataset.return_value.iterate_items.return_value = []
+    with pytest.raises(RuntimeError):
+        webhook_module.process_webhook(db, settings, apify, _payload())
+    assert _run(db)["status"] == "failed"  # re-deliverable
+
+
 def test_unknown_run_404(client, db):
     r = client.post("/api/webhooks/apify?token=hook-s", json=_payload())
     assert r.status_code == 404
