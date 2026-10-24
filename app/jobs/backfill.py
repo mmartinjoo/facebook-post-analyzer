@@ -4,7 +4,8 @@ import time
 from datetime import date, datetime, timedelta
 
 from app.analysis.prompt import load_prompt
-from app.apify_runs import start_posts_run
+from app.apify_runs import start_comments_run, start_posts_run
+from app.ingest.comments import posts_in_month
 from app.jobs.runner import continue_job
 from app.pages import load_active_pages
 from app.timeutil import BUDAPEST, previous_month
@@ -58,3 +59,25 @@ def reanalyze(conn, prompt_version: str) -> int:
     conn.execute("UPDATE monthly_summaries SET stale = true")
     conn.commit()
     return n
+
+
+def run_monthly(conn, settings, client) -> dict:
+    started = time.monotonic()
+    m = previous_month()
+    label = m.strftime("%Y-%m")
+    posts = posts_in_month(conn, m)
+    if not posts:
+        run_id = None
+        continue_job(settings, "/api/jobs/summarize", {"month": label})
+    else:
+        run_id = start_comments_run(
+            conn, settings, client, [p["url"] for p in posts],
+            kind="monthly_comments", params={"month": label}, results_limit=100,
+        )
+    logging.info(
+        json.dumps(
+            {"job": "cron_monthly", "run_id": run_id, "month": label, "posts": len(posts),
+             "elapsed_s": round(time.monotonic() - started, 2)}
+        )
+    )
+    return {"month": label, "run_id": run_id, "posts": len(posts)}

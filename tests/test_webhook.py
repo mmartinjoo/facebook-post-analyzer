@@ -97,3 +97,24 @@ def test_bad_token_401(client, db):
     r = client.post("/api/webhooks/apify?token=nope", json=_payload())
     assert r.status_code == 401
     assert _run(db)["status"] == "started"
+
+
+def test_comments_run_ingests_and_continues_summarize(client, db, continued):
+    comment_items = json.loads((Path(__file__).parent / "fixtures" / "apify_comments_sample.json").read_text())
+    post = ITEMS[0]
+    page_id = db.execute("SELECT id FROM pages WHERE slug = 'kontigo'").fetchone()["id"]
+    db.execute(
+        "INSERT INTO posts (page_id, fb_post_id, url, posted_at) VALUES (%s, 'p1', %s, now())",
+        (page_id, post["url"]),
+    )
+    db.execute(
+        "INSERT INTO scrape_runs (apify_run_id, actor, kind, params, status) "
+        "VALUES ('run1', 'comments', 'monthly_comments', '{\"month\": \"2026-09\"}', 'started')"
+    )
+    db.commit()
+    client.app.dependency_overrides[get_apify_client]().dataset.return_value.iterate_items.return_value = comment_items
+    r = client.post("/api/webhooks/apify?token=hook-s", json=_payload())
+    assert r.status_code == 200
+    assert db.execute("SELECT count(*) AS n FROM comments").fetchone()["n"] == len(comment_items)
+    assert _run(db)["status"] == "processed"
+    assert continued == [(continued[0][0], "/api/jobs/summarize", {"month": "2026-09"})]

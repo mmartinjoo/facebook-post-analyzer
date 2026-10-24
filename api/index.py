@@ -8,7 +8,7 @@ from app.analysis.job import run_analyze_job
 from app.auth import require_admin, require_cron, require_webhook
 from app.config import Settings, get_settings
 from app.db import get_db
-from app.jobs.backfill import backfill_posts, reanalyze, run_daily
+from app.jobs.backfill import backfill_posts, reanalyze, run_daily, run_monthly
 from app.jobs.runner import TimeBudget, continue_job
 from app.jobs.webhook import process_webhook
 
@@ -50,6 +50,15 @@ def cron_daily(
     client=Depends(get_apify_client),
 ) -> dict:
     return run_daily(conn, settings, client)
+
+
+@app.get("/api/cron/monthly", dependencies=[Depends(require_cron)])
+def cron_monthly(
+    settings: Settings = Depends(get_settings),
+    conn=Depends(get_db),
+    client=Depends(get_apify_client),
+) -> dict:
+    return run_monthly(conn, settings, client)
 
 
 @app.post("/api/jobs/backfill", dependencies=[Depends(require_admin)])
