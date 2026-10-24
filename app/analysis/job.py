@@ -61,7 +61,9 @@ def run_analyze_job(conn, settings, client, budget: TimeBudget, *, prompt_versio
     started = time.monotonic()
     owner = uuid4().hex
     if not acquire_lock(conn, JOB_ANALYZE, owner=owner):
+        logger.info(json.dumps({"job": "analyze", "run_id": owner, "locked": True}))
         return {"locked": True}
+    released = False
     processed = failed = 0
     attempted: list[int] = []
     try:
@@ -97,12 +99,16 @@ def run_analyze_job(conn, settings, client, budget: TimeBudget, *, prompt_versio
             (attempted,),
         ).fetchone()["n"]
         conn.commit()
+        # release before self-continuation, or the next invocation finds the lock held
+        release_lock(conn, JOB_ANALYZE, owner)
+        released = True
         if remaining > 0:
             continue_job(settings, "/api/jobs/analyze")
         logger.info(
             json.dumps(
                 {
                     "job": "analyze",
+                    "run_id": owner,
                     "processed": processed,
                     "failed": failed,
                     "remaining": remaining,
@@ -112,5 +118,6 @@ def run_analyze_job(conn, settings, client, budget: TimeBudget, *, prompt_versio
         )
         return {"processed": processed, "failed": failed, "remaining": remaining}
     finally:
-        conn.rollback()
-        release_lock(conn, JOB_ANALYZE, owner)
+        if not released:
+            conn.rollback()
+            release_lock(conn, JOB_ANALYZE, owner)

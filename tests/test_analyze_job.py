@@ -5,7 +5,7 @@ import pytest
 
 import app.analysis.job as job_module
 from app.analysis.job import run_analyze_job
-from app.jobs.runner import JOB_ANALYZE, TimeBudget, acquire_lock
+from app.jobs.runner import JOB_ANALYZE, TimeBudget, acquire_lock, release_lock
 from tests.test_extractor import make_analysis, make_response
 
 
@@ -69,3 +69,18 @@ def test_lock_held_returns_locked(db, settings, continued):
     client = _client()
     assert run_analyze_job(db, settings, client, TimeBudget(60), prompt_version="v1") == {"locked": True}
     client.messages.parse.assert_not_called()
+
+
+def test_lock_released_before_continuation(db, settings, monkeypatch):
+    _add_posts(db, 1)
+    seen = []
+
+    def fake_continue(*a, **k):
+        got = acquire_lock(db, JOB_ANALYZE, owner="next")
+        seen.append(got)
+        if got:
+            release_lock(db, JOB_ANALYZE, "next")
+
+    monkeypatch.setattr(job_module, "continue_job", fake_continue)
+    run_analyze_job(db, settings, _client(), TimeBudget(0), prompt_version="v1")
+    assert seen == [True]
