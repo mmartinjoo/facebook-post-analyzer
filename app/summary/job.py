@@ -10,7 +10,7 @@ from psycopg.types.json import Jsonb
 from app.analysis.extractor import HAIKU, SONNET
 from app.jobs.runner import JOB_SUMMARIZE, TimeBudget, acquire_lock, continue_job, release_lock
 from app.pages import Page, load_active_pages
-from app.summary.comments_llm import CommentInsights, cluster_comments
+from app.summary.comments_llm import MAX_CLUSTER_COMMENTS, CommentInsights, cluster_comments
 from app.summary.sentence import summary_sentence
 from app.summary.stats import SummaryStats, compute_stats
 from app.timeutil import month_bounds_utc
@@ -59,11 +59,14 @@ def _latest_scraped_at(conn, page_id: int | None, month: date):
 def _load_comments(conn, page_id: int | None, month: date) -> list[dict]:
     start, end = month_bounds_utc(month)
     where, extra = _comment_filter(page_id)
+    # the most recent MAX_CLUSTER_COMMENTS, returned in chronological order
     return conn.execute(
-        f"""SELECT c.id, c.text, c.author_is_page FROM comments c JOIN posts p ON p.id = c.post_id
-            WHERE p.posted_at >= %s AND p.posted_at < %s AND {where}
-            ORDER BY c.posted_at NULLS LAST, c.id""",
-        [start, end, *extra],
+        f"""SELECT * FROM (
+                SELECT c.id, c.text, c.author_is_page, c.posted_at FROM comments c JOIN posts p ON p.id = c.post_id
+                WHERE p.posted_at >= %s AND p.posted_at < %s AND {where}
+                ORDER BY c.posted_at DESC NULLS LAST, c.id DESC LIMIT %s
+            ) recent ORDER BY posted_at NULLS FIRST, id""",
+        [start, end, *extra, MAX_CLUSTER_COMMENTS],
     ).fetchall()
 
 
@@ -75,7 +78,14 @@ def _stored_insights(existing: dict | None) -> CommentInsights | None:
     )
 
 
-def _summarize_target(conn, settings, client, page: Page | None, month: date, stats_only: bool) -> bool:
+def _add_usage(tokens: dict, model: str, usage: dict) -> None:
+    tokens[model]["input"] += usage["input_tokens"]
+    tokens[model]["output"] += usage["output_tokens"]
+
+
+def _summarize_target(
+    conn, settings, client, page: Page | None, month: date, stats_only: bool, tokens: dict
+) -> bool:
     page_id = page.id if page else None
     stats = compute_stats(conn, page_id, month)
     existing = conn.execute(EXISTING, (page_id, month)).fetchone()
@@ -86,11 +96,15 @@ def _summarize_target(conn, settings, client, page: Page | None, month: date, st
         computed_at = existing["comments_computed_at"] if existing else None
         if computed_at is None or (latest is not None and latest > computed_at):
             comments = _load_comments(conn, page_id, month)
-            insights, _usage = cluster_comments(client, comments=comments, page_name=page.name if page else None)
+            insights, usage = cluster_comments(
+                client, comments=comments, page_name=page.name if page else None, total_count=stats.comment_count
+            )
+            _add_usage(tokens, "sonnet", usage)
             clustered = True
-    sentence, _usage = summary_sentence(
+    sentence, usage = summary_sentence(
         client, page_name=page.name if page else None, month=month, stats=stats, insights=insights
     )
+    _add_usage(tokens, "haiku", usage)
     stat_values = [Jsonb(v) if isinstance(v, (dict, list)) else v for v in asdict(stats).values()]
     questions = [i.model_dump() for i in insights.top_questions] if insights else []
     objections = [i.model_dump() for i in insights.top_objections] if insights else []
@@ -123,14 +137,32 @@ def run_summarize_job(
         logger.info(json.dumps({"job": "summarize", "run_id": owner, "month": month_str, "locked": True}))
         return {"locked": True}
     released = False
-    processed = clustered = 0
+    processed = clustered = failed = attempted = 0
+    tokens = {"haiku": {"input": 0, "output": 0}, "sonnet": {"input": 0, "output": 0}}
     try:
         for target in targets:
             if budget.expired():
                 break
-            clustered += _summarize_target(conn, settings, client, target, month, stats_only)
-            processed += 1
-        remaining = len(targets) - processed
+            attempted += 1
+            try:
+                clustered += _summarize_target(conn, settings, client, target, month, stats_only, tokens)
+                processed += 1
+            except Exception as e:
+                # one bad target must not block the rest; its comments_computed_at stays old/NULL -> retried later
+                conn.rollback()
+                failed += 1
+                logger.warning(
+                    json.dumps(
+                        {
+                            "job": "summarize",
+                            "run_id": owner,
+                            "target": target.slug if target else "all",
+                            "month": month_str,
+                            "error": str(e)[:300],
+                        }
+                    )
+                )
+        remaining = len(targets) - attempted
         conn.commit()
         # release before self-continuation, or the next invocation finds the lock held
         release_lock(conn, JOB_SUMMARIZE, owner)
@@ -151,11 +183,20 @@ def run_summarize_job(
                     "processed": processed,
                     "remaining": remaining,
                     "clustered": clustered,
+                    "failed": failed,
+                    "tokens": tokens,
                     "elapsed_s": round(time.monotonic() - started, 1),
                 }
             )
         )
-        return {"month": month_str, "processed": processed, "remaining": remaining, "clustered": clustered}
+        return {
+            "month": month_str,
+            "processed": processed,
+            "remaining": remaining,
+            "clustered": clustered,
+            "failed": failed,
+            "tokens": tokens,
+        }
     finally:
         if not released:
             conn.rollback()

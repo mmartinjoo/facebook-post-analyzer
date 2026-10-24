@@ -66,7 +66,10 @@ def kontigo_id(db):
 def test_creates_rows_for_each_page_and_all(db, settings, client):
     seed(db, page_slug="kontigo", month=M, posts=[{"reactions_count": 5}])
     result = run(db, settings, client)
-    assert result == {"month": "2026-09", "processed": 6, "remaining": 0, "clustered": 0}
+    assert result == {
+        "month": "2026-09", "processed": 6, "remaining": 0, "clustered": 0, "failed": 0,
+        "tokens": {"haiku": {"input": 400, "output": 60}, "sonnet": {"input": 0, "output": 0}},
+    }
     rs = rows(db)
     assert len(rs) == 6
     assert sum(r["page_id"] is None for r in rs) == 1
@@ -84,7 +87,9 @@ def test_comments_clustering_only_when_new_comments(db, settings, client):
     [pid] = seed(db, page_slug="kontigo", month=M, posts=[{}])
     add_comments(db, pid, ["Mennyibe kerül?", "Mennyi az ár?", "Drága"])
     slug_run = lambda: run(db, settings, client, page_slug="kontigo")
-    assert slug_run()["clustered"] == 1
+    first = slug_run()
+    assert first["clustered"] == 1
+    assert first["tokens"]["sonnet"] == {"input": 100, "output": 50}
     assert client.messages.parse.call_count == 1
     row = rows(db)[0]
     assert row["comments_model"] == "claude-sonnet-5-5" and row["comments_computed_at"] is not None
@@ -155,3 +160,22 @@ def test_route_rejects_bad_month(db, settings, client):
         assert http.post("/api/jobs/summarize?month=2026-09&page=nope", headers=h).status_code == 404
     finally:
         app.dependency_overrides.clear()
+
+
+def test_failing_target_does_not_abort_run(db, settings, client):
+    [pid] = seed(db, page_slug="kontigo", month=M, posts=[{}])
+    add_comments(db, pid, ["Mennyibe kerül?", "Mennyi az ár?", "Drága"])
+    normal = client.messages.parse.return_value
+    client.messages.parse.side_effect = [RuntimeError("boom"), normal]  # Kontigo and all-pages both cluster
+    result = run(db, settings, client)
+    assert result["failed"] == 1 and result["processed"] == 5 and result["remaining"] == 0
+    assert result["clustered"] == 1
+    rs = rows(db)
+    assert len(rs) == 5  # the failed target's row was rolled back, the other five were written
+    assert sum(1 for r in rs if r["comments_computed_at"] is not None) == 1
+    assert db.execute("select count(*) as n from job_locks").fetchone()["n"] == 0
+
+    client.messages.parse.side_effect = None
+    retry = run(db, settings, client)
+    assert retry["failed"] == 0 and retry["clustered"] == 1  # only the failed target re-clusters
+    assert len(rows(db)) == 6

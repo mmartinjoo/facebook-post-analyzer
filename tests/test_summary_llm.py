@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 from pydantic import ValidationError
 
-from app.summary.comments_llm import CommentInsights, Insight, cluster_comments
+from app.summary.comments_llm import CommentInsights, Insight, build_comment_message, cluster_comments
 from app.summary.sentence import summary_sentence
 from app.summary.stats import SummaryStats
 
@@ -79,3 +79,11 @@ def test_sentence_calls_haiku_low_effort():
     assert payload["alany"] == "Kontigo" and payload["honap"] == "szeptember" and payload["ev"] == 2026
     assert payload["stats"]["post_count"] == 4
     assert payload["insights"]["top_questions"][0]["count"] == 2
+
+
+def test_comment_message_header_states_total_when_capped():
+    comments = [{"text": f"k{i}", "author_is_page": False} for i in range(300)]
+    capped = build_comment_message(comments, "Kontigo", total_count=412)
+    assert "Kommentek száma: 412 (a 300 legfrissebb szerepel)" in capped
+    full = build_comment_message(comments[:3], None, total_count=3)
+    assert full.startswith("Oldal: összes oldal\nKommentek száma: 3\n")
