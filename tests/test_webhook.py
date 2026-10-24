@@ -118,3 +118,34 @@ def test_comments_run_ingests_and_continues_summarize(client, db, continued):
     assert db.execute("SELECT count(*) AS n FROM comments").fetchone()["n"] == len(comment_items)
     assert _run(db)["status"] == "processed"
     assert continued == [(continued[0][0], "/api/jobs/summarize", {"month": "2026-09"})]
+
+
+@pytest.mark.parametrize("with_valid", [True, False])
+def test_comments_run_tolerates_error_items(client, db, continued, with_valid):
+    comment_items = json.loads((Path(__file__).parent / "fixtures" / "apify_comments_sample.json").read_text())
+    post = ITEMS[0]
+    page_id = db.execute("SELECT id FROM pages WHERE slug = 'kontigo'").fetchone()["id"]
+    db.execute(
+        "INSERT INTO posts (page_id, fb_post_id, url, posted_at) VALUES (%s, 'p1', %s, now())",
+        (page_id, post["url"]),
+    )
+    db.execute(
+        "INSERT INTO scrape_runs (apify_run_id, actor, kind, params, status) "
+        "VALUES ('run1', 'comments', 'monthly_comments', '{\"month\": \"2026-09\"}', 'started')"
+    )
+    db.commit()
+    error_item = {
+        "error": "no_data",
+        "errorDescription": "No public data available without Facebook login or access rights",
+        "inputUrl": post["url"],
+    }
+    items = ([error_item] + comment_items) if with_valid else [error_item]
+    client.app.dependency_overrides[get_apify_client]().dataset.return_value.iterate_items.return_value = items
+    r = client.post("/api/webhooks/apify?token=hook-s", json=_payload())
+    assert r.status_code == 200
+    run = _run(db)
+    assert run["status"] == "processed"
+    assert "items skipped" in run["error"]
+    expected = len(comment_items) if with_valid else 0
+    assert db.execute("SELECT count(*) AS n FROM comments").fetchone()["n"] == expected
+    assert [c[1:] for c in continued] == [("/api/jobs/summarize", {"month": "2026-09"})]

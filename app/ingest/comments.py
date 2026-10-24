@@ -38,6 +38,15 @@ def normalize_post_url(url: str) -> str:
     return f"{parts.scheme}://{parts.netloc}{parts.path}".rstrip("/").lower()
 
 
+def build_posts_by_url(rows: list[dict]) -> dict[str, dict]:
+    """Index posts (dicts with url, id, page_id) by NORMALISED url; normalises each url once."""
+    return {
+        normalize_post_url(r["url"]): {"id": r["id"], "page_id": r["page_id"]}
+        for r in rows
+        if r.get("url")
+    }
+
+
 def _parse_date(value) -> datetime | None:
     if not value:
         return None
@@ -46,13 +55,13 @@ def _parse_date(value) -> datetime | None:
 
 
 def map_comment_item(item: dict, posts_by_url: dict[str, dict], pages_by_id: dict[int, Page]) -> CommentRecord:
+    """`posts_by_url` must be keyed by NORMALISED url (see `build_posts_by_url`)."""
     comment_id = item.get("commentId") or item.get("id")
     if not comment_id:
         raise ValueError(f"comment item without id (url {item.get('facebookUrl') or item.get('inputUrl')})")
     comment_id = str(comment_id)
     url = item.get("facebookUrl") or item.get("inputUrl")
-    index = {normalize_post_url(u): p for u, p in posts_by_url.items()}
-    post = index.get(normalize_post_url(url)) if url else None
+    post = posts_by_url.get(normalize_post_url(url)) if url else None
     if post is None:
         raise ValueError(f"comment {comment_id}: no post for url {url}")
 

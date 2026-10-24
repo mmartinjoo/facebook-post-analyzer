@@ -5,7 +5,7 @@ import time
 from datetime import datetime
 
 from app.apify_runs import get_run_by_apify_id, mark_run
-from app.ingest.comments import map_comment_item, upsert_comments
+from app.ingest.comments import build_posts_by_url, map_comment_item, upsert_comments
 from app.ingest.posts import map_post_item, upsert_posts
 from app.jobs.runner import continue_job
 from app.pages import load_active_pages
@@ -38,10 +38,9 @@ def _process_posts_run(conn, settings, client, run: dict, payload: dict) -> dict
 
 def _process_comments_run(conn, settings, client, run: dict, payload: dict) -> dict:
     pages_by_id = {p.id: p for p in load_active_pages(conn)}
-    posts_by_url = {
-        r["url"]: {"id": r["id"], "page_id": r["page_id"]}
-        for r in conn.execute("SELECT id, url, page_id FROM posts WHERE url IS NOT NULL").fetchall()
-    }
+    posts_by_url = build_posts_by_url(
+        conn.execute("SELECT id, url, page_id FROM posts WHERE url IS NOT NULL").fetchall()
+    )
     records = []
     errors: list[str] = []
     total = 0

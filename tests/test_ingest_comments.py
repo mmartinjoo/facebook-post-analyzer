@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from app.ingest.comments import map_comment_item, upsert_comments
+from app.ingest.comments import build_posts_by_url, map_comment_item, upsert_comments
 from app.pages import load_active_pages
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -21,7 +21,7 @@ def setup(db):
         (kontigo.id, POST_URL),
     ).fetchone()["id"]
     db.commit()
-    return {POST_URL: {"id": post_id, "page_id": kontigo.id}}, {p.id: p for p in pages}, kontigo
+    return build_posts_by_url([{"id": post_id, "url": POST_URL, "page_id": kontigo.id}]), {p.id: p for p in pages}, kontigo
 
 
 def test_map_fixture_and_author_is_page(db, setup):
