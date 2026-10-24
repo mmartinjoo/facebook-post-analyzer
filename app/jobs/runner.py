@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 
@@ -20,7 +21,8 @@ class TimeBudget:
         return self.remaining() <= 0
 
 
-def acquire_lock(conn, job_name: str, ttl_seconds: int = 600, *, owner: str) -> bool:
+def acquire_lock(conn, job_name: str, ttl_seconds: int = 330, *, owner: str) -> bool:
+    # TTL just above Vercel's maxDuration (300 s): a killed invocation's lock frees up soon after
     cur = conn.execute(
         """
         INSERT INTO job_locks (job_name, locked_until, locked_by)
@@ -45,14 +47,21 @@ def release_lock(conn, job_name: str, owner: str) -> None:
 
 
 def continue_job(settings, path: str, params: dict | None = None) -> None:
+    """Fire-and-forget POST to one of our own job endpoints. Never raises; the outcome is logged."""
+    headers = {"X-Admin-Secret": settings.admin_secret}
+    if settings.vercel_protection_bypass:
+        headers["x-vercel-protection-bypass"] = settings.vercel_protection_bypass
     try:
-        httpx.post(
-            settings.app_base_url + path,
-            params=params,
-            headers={"X-Admin-Secret": settings.admin_secret},
-            timeout=3.0,
-        )
+        r = httpx.post(settings.app_base_url + path, params=params, headers=headers, timeout=3.0)
     except httpx.TimeoutException:
-        logger.debug("continue_job %s timed out; assuming the call started", path)
+        # the normal path: the job keeps running after we stop waiting for it
+        logger.info(json.dumps({"job": "continue", "path": path, "status": "timeout"}))
+        return
     except Exception as exc:
-        logger.warning("continue_job %s failed: %s", path, exc)
+        logger.warning(json.dumps({"job": "continue", "path": path, "error": str(exc)[:200]}))
+        return
+    line = json.dumps({"job": "continue", "path": path, "status": r.status_code, "body": r.text[:200]})
+    if r.status_code >= 400 or "locked" in r.text:
+        logger.warning(line)
+    else:
+        logger.info(line)

@@ -31,10 +31,13 @@ PAYLOAD_TEMPLATE = (
 
 
 def _webhooks(settings) -> list[dict]:
+    url = f"{settings.app_base_url}/api/webhooks/apify?token={settings.apify_webhook_secret}"
+    if settings.vercel_protection_bypass:
+        url += f"&x-vercel-protection-bypass={settings.vercel_protection_bypass}"
     return [
         {
             "event_types": WEBHOOK_EVENTS,
-            "request_url": f"{settings.app_base_url}/api/webhooks/apify?token={settings.apify_webhook_secret}",
+            "request_url": url,
             "payload_template": PAYLOAD_TEMPLATE,
         }
     ]

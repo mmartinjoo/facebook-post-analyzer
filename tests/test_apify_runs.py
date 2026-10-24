@@ -105,3 +105,12 @@ def test_processed_run_cannot_be_downgraded(db, settings):
     assert row["status"] == "processed" and row["error"] is None
     mark_run(db, run_id, status="processed", items_count=4)
     assert get_run_by_apify_id(db, "run1")["items_count"] == 4
+
+
+def test_webhooks_add_protection_bypass_when_set(settings):
+    settings.vercel_protection_bypass = "bypass-s"
+    encoded = encode_webhooks_to_base64(_webhooks(settings))
+    (hook,) = json.loads(base64.b64decode(encoded))
+    assert hook["requestUrl"] == (
+        "http://testserver/api/webhooks/apify?token=hook-s&x-vercel-protection-bypass=bypass-s"
+    )

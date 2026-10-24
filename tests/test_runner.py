@@ -1,3 +1,5 @@
+import logging
+
 import httpx
 
 from app.jobs.runner import (
@@ -39,6 +41,33 @@ def test_continue_job_swallows_timeout(settings, monkeypatch):
     url, kwargs = calls[0]
     assert url == "http://testserver/api/jobs/analyze"
     assert kwargs["headers"]["X-Admin-Secret"] == "admin-s"
+    assert "x-vercel-protection-bypass" not in kwargs["headers"]
+
+
+def test_continue_job_sends_protection_bypass(settings, monkeypatch):
+    calls = []
+    monkeypatch.setattr(httpx, "post", lambda url, **kw: calls.append(kw) or httpx.Response(202, text="{}"))
+    settings.vercel_protection_bypass = "bypass-s"
+    continue_job(settings, "/api/jobs/analyze")
+    assert calls[0]["headers"]["x-vercel-protection-bypass"] == "bypass-s"
+
+
+def test_continue_job_logs_non_2xx(settings, monkeypatch, caplog):
+    monkeypatch.setattr(httpx, "post", lambda url, **kw: httpx.Response(401, text="Authentication Required"))
+    with caplog.at_level(logging.INFO, logger="app.jobs.runner"):
+        assert continue_job(settings, "/api/jobs/summarize") is None
+    (record,) = caplog.records
+    assert record.levelno == logging.WARNING
+    assert '"status": 401' in record.getMessage() and "Authentication Required" in record.getMessage()
+
+
+def test_continue_job_logs_locked_as_warning_and_2xx_as_info(settings, monkeypatch, caplog):
+    responses = iter([httpx.Response(200, text='{"locked":true}'), httpx.Response(200, text='{"processed":1}')])
+    monkeypatch.setattr(httpx, "post", lambda url, **kw: next(responses))
+    with caplog.at_level(logging.INFO, logger="app.jobs.runner"):
+        continue_job(settings, "/api/jobs/analyze")
+        continue_job(settings, "/api/jobs/analyze")
+    assert [r.levelno for r in caplog.records] == [logging.WARNING, logging.INFO]
 
 
 def test_continue_job_logs_other_errors(settings, monkeypatch, caplog):

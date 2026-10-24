@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +17,13 @@ class Settings(BaseSettings):
     job_time_budget_seconds: int = 200
     prompt_version: str = "v1"
     test_database_url: str | None = None
+    # Vercel "Protection Bypass for Automation" secret; empty = not sent
+    vercel_protection_bypass: str = ""
+
+    @field_validator("app_base_url")
+    @classmethod
+    def _strip_trailing_slash(cls, v: str) -> str:
+        return v.rstrip("/")
 
 
 @lru_cache

@@ -1,3 +1,4 @@
+import logging
 from datetime import date, datetime
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Query
@@ -12,6 +13,10 @@ from app.jobs.backfill import backfill_comments, backfill_posts, reanalyze, run_
 from app.jobs.runner import TimeBudget, continue_job
 from app.jobs.webhook import process_webhook
 from app.summary.job import run_summarize_job
+
+# Vercel's Python runtime has no INFO handler by default -> the JSON job log lines would be dropped
+if not logging.getLogger().handlers:
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 app = FastAPI()
 
