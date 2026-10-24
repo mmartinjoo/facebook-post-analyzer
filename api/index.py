@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 from fastapi import Body, Depends, FastAPI, HTTPException
 
@@ -11,6 +11,7 @@ from app.db import get_db
 from app.jobs.backfill import backfill_posts, reanalyze, run_daily, run_monthly
 from app.jobs.runner import TimeBudget, continue_job
 from app.jobs.webhook import process_webhook
+from app.summary.job import run_summarize_job
 
 app = FastAPI()
 
@@ -83,3 +84,26 @@ def reanalyze_job(
         raise HTTPException(status_code=400, detail="unknown prompt version")
     continue_job(settings, "/api/jobs/analyze")
     return {"reset": n}
+
+
+@app.post("/api/jobs/summarize", dependencies=[Depends(require_admin)])
+def summarize_job(
+    month: str,
+    page: str | None = None,
+    stats_only: str | None = None,
+    settings: Settings = Depends(get_settings),
+    conn=Depends(get_db),
+    client=Depends(get_anthropic_client),
+) -> dict:
+    try:
+        month_date = datetime.strptime(month, "%Y-%m").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="month must be YYYY-MM")
+    budget = TimeBudget(settings.job_time_budget_seconds)
+    try:
+        return run_summarize_job(
+            conn, settings, client, budget,
+            month=month_date, page_slug=page, stats_only=stats_only in ("1", "true"),
+        )
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
