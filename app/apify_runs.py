@@ -1,3 +1,7 @@
+"""Start Apify actor runs and record them in scrape_runs.
+
+apify-client 3.x returns pydantic models (`Run`); `dataset.iterate_items()` yields plain dicts.
+"""
 import json
 import logging
 from datetime import date
@@ -38,7 +42,7 @@ def _start_and_record(
 ) -> int:
     params_json = json.dumps(params, default=str)  # fail before starting the run
     run = client.actor(actor_id).start(run_input=run_input, webhooks=_webhooks(settings))
-    apify_run_id = run["id"]
+    apify_run_id = run.id
     try:
         row = conn.execute(
             """

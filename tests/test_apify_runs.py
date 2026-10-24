@@ -1,15 +1,18 @@
+import base64
+import json
 from datetime import date
 from unittest.mock import MagicMock
 
 import pytest
+from apify_client._utils.encoding import encode_webhooks_to_base64
 
-from app.apify_runs import POSTS_ACTOR, get_run_by_apify_id, mark_run, start_comments_run, start_posts_run
+from app.apify_runs import PAYLOAD_TEMPLATE, POSTS_ACTOR, _webhooks, get_run_by_apify_id, mark_run, start_comments_run, start_posts_run
 from app.pages import load_active_pages, resolve_page
 
 
 def make_client():
     client = MagicMock()
-    client.actor.return_value.start.return_value = {"id": "run1", "defaultDatasetId": "ds1"}
+    client.actor.return_value.start.return_value = MagicMock(id="run1", default_dataset_id="ds1")
     return client
 
 
@@ -82,3 +85,13 @@ def test_failed_insert_aborts_apify_run(db, settings):
     client.run.return_value.abort.assert_called_once_with()
     assert db.execute("SELECT count(*) AS n FROM scrape_runs").fetchone()["n"] == 0
     assert db.execute("select 1 AS x").fetchone()["x"] == 1
+
+
+def test_webhooks_encode_with_real_library_encoder(settings):
+    encoded = encode_webhooks_to_base64(_webhooks(settings))
+    (hook,) = json.loads(base64.b64decode(encoded))
+    assert hook["eventTypes"] == [
+        "ACTOR.RUN.SUCCEEDED", "ACTOR.RUN.FAILED", "ACTOR.RUN.ABORTED", "ACTOR.RUN.TIMED_OUT",
+    ]
+    assert hook["requestUrl"] == "http://testserver/api/webhooks/apify?token=hook-s"
+    assert hook["payloadTemplate"] == PAYLOAD_TEMPLATE
