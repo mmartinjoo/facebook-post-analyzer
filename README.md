@@ -10,13 +10,13 @@ Napi rendszerességgel futó, felügyelet nélküli pipeline egy magyar self-sto
 ## Architektúra röviden
 
 ```
-napi:   cron/daily ──► Apify posts run (14 nap) ──► webhooks/apify ──► posts upsert ──► jobs/analyze ──► post_analyses
+heti:   cron/daily ──► Apify posts run (14 nap) ──► webhooks/apify ──► posts upsert ──► jobs/analyze ──► post_analyses
 havi:   cron/monthly (1-jén) ──► Apify comments run (előző hónap) ──► webhooks/apify ──► comments upsert ──► mark_stale ──► jobs/summarize ──► monthly_summaries
 ```
 
 - Semmi nem vár az Apify-ra: a cron elindítja a futást és webhookot regisztrál, az Apify a végén hívja a `POST /api/webhooks/apify` végpontot.
 - Minden hosszabb munka (`analyze`, `summarize`) időkeretes (`JOB_TIME_BUDGET_SECONDS`), egy `job_locks` zárral egyszerre csak egy példány fut belőle, és ha maradt munka, a job egy aszinkron HTTP-hívással önmagát folytatja. Minden lépés idempotens (upsert).
-- A `summarize` egy **sor-alapú várólista**: aki egy hónap összegzését frissíteni akarja (napi cron, komment-webhook, `summarize-range`, havi cron poszt nélküli hónapra), az a `monthly_summaries` érintett sorait `stale = true`-ra állítja (a hiányzó sorokat üres helyőrzőként létrehozza), majd **egyetlen** paraméter nélküli `POST /api/jobs/summarize` hívást küld. Ez a `stale` sorokat hónap szerint sorban dolgozza fel, időkeret végén önmagát folytatja. Egy sor `stale` marad, ha a célpont hibázott, vagy ha a hónapban még van `pending` poszt; ezeket a következő napi drain veszi újra.
+- A `summarize` egy **sor-alapú várólista**: aki egy hónap összegzését frissíteni akarja (heti cron, komment-webhook, `summarize-range`, havi cron poszt nélküli hónapra), az a `monthly_summaries` érintett sorait `stale = true`-ra állítja (a hiányzó sorokat üres helyőrzőként létrehozza), majd **egyetlen** paraméter nélküli `POST /api/jobs/summarize` hívást küld. Ez a `stale` sorokat hónap szerint sorban dolgozza fel, időkeret végén önmagát folytatja. Egy sor `stale` marad, ha a célpont hibázott, vagy ha a hónapban még van `pending` poszt; ezeket a következő heti drain veszi újra.
 - Három LLM-használat:
   1. poszt-kinyerés (szöveg + képek, `messages.parse`): `claude-haiku-5-5`, `effort=low`
   2. komment-klaszterezés (top kérdések/kifogások, havonta oldalanként): `claude-sonnet-5-5`, `effort=medium`
@@ -69,7 +69,7 @@ curl "$APP_BASE_URL/api/health"
   1. saját production domain (custom domain) legyen az `APP_BASE_URL`, mert azt a Standard Protection nem védi; vagy
   2. kapcsold ki a Deployment Protectiont a projektre; vagy
   3. hozz létre egy "Protection Bypass for Automation" titkot (Project Settings, Deployment Protection), és állítsd be `VERCEL_PROTECTION_BYPASS`-ként: az app ezt fejlécben küldi a saját hívásaihoz, és a webhook URL-be is beleteszi.
-- **Cron-ok** (`vercel.json`, UTC): `/api/cron/daily` minden nap 04:00, `/api/cron/monthly` minden hónap 1-jén 04:30.
+- **Cron-ok** (`vercel.json`, UTC): `/api/cron/daily` hetente, hétfőn 04:00 (`0 4 * * 1`), `/api/cron/monthly` minden hónap 1-jén 04:30. A heti ütem az Apify-költség miatt van: minden futás actor-indítási és szűrődíjat is fizet, a 14 napos ablak pedig hetente is kétszeres átfedést ad, így poszt nem marad ki. (A végpont neve kompatibilitás miatt maradt `daily`.)
 - **Hobby csomag:** a cron pontossága ±1 óra; a `maxDuration: 300` Hobby csomagon csak bekapcsolt **Fluid compute** mellett érvényes (Project Settings, Functions); a `JOB_TIME_BUDGET_SECONDS` alapértéke 200. A Hobby csomag **kereskedelmi használatra nem engedélyezett**, éles használathoz Pro kell. Pro-n a `JOB_TIME_BUDGET_SECONDS` emelhető. A zár lejárata (330 s) a `maxDuration` felett van; ha a `maxDuration`-t emeled, a `acquire_lock` `ttl_seconds` alapértékét is emeld.
 
 ## Kézi végpontok
@@ -112,7 +112,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" "$APP_BASE_URL/api/cron/daily"
 5. Komment-költségbecslés: `uv run python scripts/probe_apify_comments.py` (a költés `max_total_charge_usd=0.50`-nel korlátozva), a számolás a következő szakaszban. Mutasd be a megrendelőnek.
 6. **Jóváhagyás után**: `POST /api/jobs/backfill-comments?from=2022-01&to=<utolsó lezárt hónap>`. Hónaponként egy Apify futás indul, a webhook a hónapot `stale`-re állítja és elindítja a `summarize` drain-t.
 7. Várd meg, amíg minden komment-futás feldolgozódik: `select status, count(*) from scrape_runs where kind='backfill_comments' group by 1;` (csak `processed`, esetleg `failed` maradjon; `started`/`processing` esetén lásd "Ha egy run `started`/`failed`/`processing` marad"). Utána `POST /api/jobs/summarize-range?from=2022-01&to=<utolsó lezárt hónap>`: a nulla kommentes és nulla posztos hónapokra is létrejönnek a sorok. Ellenőrzés: `select count(*) from monthly_summaries where month >= '2022-01-01';` = hónapok × 6 (5 oldal + az összesítő sor), és `select count(*) from monthly_summaries where stale;` = 0 (a drain több hívásban, önfolytatva megy végig).
-8. Cron-ok ellenőrzése a Vercel felületén (Settings, Cron Jobs): a napi és a havi cron látszik, és az első futás után a `scrape_runs` tartalmaz új sort.
+8. Cron-ok ellenőrzése a Vercel felületén (Settings, Cron Jobs): a heti és a havi cron látszik, és az első futás után a `scrape_runs` tartalmaz új sort.
 
 ## Ha egy run `started`/`failed`/`processing` marad
 
@@ -162,10 +162,10 @@ A 2022-01-01 cél, nem garancia: az Apify actor a Facebook-oldalak visszagörget
 - A posts actor ezeknél az oldalaknál **nem ad `comments` kulcsot**, ezért a `posts.comments_count` 0, az `engagement` = reactions + shares, amíg nincs jobb forrás. A tényleges komment-mennyiség a havi komment-futással a `comments` táblába és a `monthly_summaries.comment_count`-ba kerül.
 - A Sonnet klaszterezés (oldal, hónap) párra legfeljebb a 300 legfrissebb kommentet használja.
 - Nulla posztos hónap mondata sablon: "<Név>: nem volt poszt <év> <hónap> hónapban." (a spec szövegének elfogadott egyszerűsítése).
-- A napi cron fail-fast: ha az Apify indítása hibázik, aznap az `analyze`/`summarize` folytatások kimaradnak (HTTP 500 a Vercel logban).
+- A heti cron fail-fast: ha az Apify indítása hibázik, azon a héten az `analyze`/`summarize` folytatások kimaradnak (HTTP 500 a Vercel logban).
 - Vercel Hobby: ±1 óra cron-pontosság, `maxDuration` 300 s (Fluid compute kell), `JOB_TIME_BUDGET_SECONDS` alapérték 200, a zár lejárata (330 s) maradjon a `maxDuration` felett. A Hobby nem kereskedelmi használatra való, éles üzemhez Pro kell (ott emelhető a `JOB_TIME_BUDGET_SECONDS`).
 - A Deployment Protectiont kezelni kell (custom domain, kikapcsolás vagy `VERCEL_PROTECTION_BYPASS`), különben az Apify webhook és az önfolytatás 401-et kap; a `continue_job` ezt WARNING logsorral jelzi.
-- A napi drain az `analyze`-zal párhuzamosan indul: amíg egy hónapban van `pending` poszt, a sorai `stale`-ek maradnak, és a következő napi drain számolja újra őket (legfeljebb egy nap késés).
+- A heti drain az `analyze`-zal párhuzamosan indul: amíg egy hónapban van `pending` poszt, a sorai `stale`-ek maradnak, és a következő heti drain számolja újra őket (legfeljebb egy hét késés).
 - A komment-mezőleképezés valós adaton nem igazolt (lásd: login wall).
 
 ## Mindennapi SQL-lekérdezések
