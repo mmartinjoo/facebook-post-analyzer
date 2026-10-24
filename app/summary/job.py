@@ -199,7 +199,7 @@ def run_summarize_job(
         logger.info(json.dumps({"job": "summarize", "run_id": owner, "month": month_str, "locked": True}))
         return {"locked": True}
     released = False
-    processed = clustered = failed = attempted = 0
+    processed = clustered = failed = attempted = skipped_pending = 0
     done: set[tuple[int | None, date]] = set()
     tokens = {"haiku": {"input": 0, "output": 0}, "sonnet": {"input": 0, "output": 0}}
 
@@ -246,6 +246,13 @@ def run_summarize_job(
                     )
                     conn.commit()
                     continue
+                pending = _has_pending(conn, page_id, target_month)
+                conn.commit()
+                if pending:
+                    # analyses still running would change the stats: leave the row stale, no LLM call; it is
+                    # retried by a later drain (and skipping it lets newer months behind it get through)
+                    skipped_pending += 1
+                    continue
                 run_target(pages_by_id.get(page_id), target_month)
         conn.commit()
         # release before self-continuation, or the next invocation finds the lock held
@@ -262,10 +269,11 @@ def run_summarize_job(
                 continue_job(settings, "/api/jobs/summarize", params)
         else:
             # counted after the release, so rows queued while this run held the lock are not lost; rows this run
-            # already tried (failed, or kept stale by pending posts) wait for the next drain (daily cron)
+            # already tried (failed, or skipped for pending posts) wait for the next drain (daily cron).
+            # Continue only after progress: a run that summarised nothing would just repeat itself.
             remaining = sum(1 for k in _stale_keys(conn) if k not in done)
             conn.commit()
-            if remaining > 0:
+            if processed > 0 and remaining > 0:
                 continue_job(settings, "/api/jobs/summarize")
         logger.info(
             json.dumps(
@@ -278,6 +286,7 @@ def run_summarize_job(
                     "remaining": remaining,
                     "clustered": clustered,
                     "failed": failed,
+                    "skipped_pending": skipped_pending,
                     "tokens": tokens,
                     "elapsed_s": round(time.monotonic() - started, 1),
                 }

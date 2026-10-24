@@ -221,15 +221,33 @@ def test_drain_keeps_stale_while_posts_pending(db, settings, client, no_continue
     seed(db, page_slug="kontigo", month=M, posts=[{}, {"analysis_status": "pending"}])
     mark_stale(db, M)
     result = run_summarize_job(db, settings, client, TimeBudget(1000))
-    assert result["processed"] == 6 and result["remaining"] == 0
-    still = db.execute("select page_id from monthly_summaries where stale order by page_id nulls last").fetchall()
-    assert [r["page_id"] for r in still] == [kontigo_id(db), None]  # Kontigo + all-pages wait for the analysis
-    assert no_continue == []  # already tried in this run -> left for the next drain, no self-loop
+    assert result["processed"] == 4 and result["remaining"] == 0  # Kontigo + all-pages skipped, not summarised
+    still = db.execute(
+        "select page_id, summary_sentence, post_count from monthly_summaries where stale order by page_id nulls last"
+    ).fetchall()
+    assert [r["page_id"] for r in still] == [kontigo_id(db), None]
+    assert all(r["summary_sentence"] is None and r["post_count"] is None for r in still)  # still placeholders
+    client.messages.create.assert_not_called()  # the 4 summarised pages had no posts -> no Haiku call either
+    assert no_continue == []  # already looked at in this run -> left for the next drain, no self-loop
 
     db.execute("update posts set analysis_status = 'done' where analysis_status = 'pending'")
     db.commit()
     again = run_summarize_job(db, settings, client, TimeBudget(1000))
     assert again["processed"] == 2 and stale_count(db) == 0
+    assert client.messages.create.call_count == 2
+
+
+def test_drain_does_not_continue_without_progress(db, settings, client, monkeypatch):
+    seed(db, page_slug="kontigo", month=M, posts=[{"analysis_status": "pending"}])
+    mark_stale(db, M, page_id=kontigo_id(db))  # Kontigo + all-pages, both pending-blocked
+    calls = []
+    monkeypatch.setattr("app.summary.job.continue_job", lambda *a, **k: calls.append(a))
+    result = run_summarize_job(db, settings, client, TimeBudget(1000))
+    assert result["processed"] == 0 and result["remaining"] == 0
+    assert calls == []
+    client.messages.create.assert_not_called()
+    assert stale_count(db) == 2
+    assert db.execute("select count(*) as n from job_locks").fetchone()["n"] == 0
 
 
 def test_drain_failed_target_stays_stale(db, settings, client):
@@ -247,6 +265,7 @@ def test_drain_failed_target_stays_stale(db, settings, client):
 
 
 def test_drain_budget_expired_continues_without_month(db, settings, client, monkeypatch):
+    # progress made, rows left -> one param-less continuation, lock already released
     mark_stale(db, M)
     lock_held, calls = [], []
 
@@ -255,8 +274,10 @@ def test_drain_budget_expired_continues_without_month(db, settings, client, monk
         calls.append((a, k))
 
     monkeypatch.setattr("app.summary.job.continue_job", fake_continue)
-    result = run_summarize_job(db, settings, client, TimeBudget(0))
-    assert result["processed"] == 0 and result["remaining"] == 6
+    budget = MagicMock()
+    budget.remaining.side_effect = [1000, 0]  # one target, then the budget is below the reserve
+    result = run_summarize_job(db, settings, client, budget)
+    assert result["processed"] == 1 and result["remaining"] == 5
     assert lock_held == [0]
     (args, kwargs), = calls
     assert args[1:] == ("/api/jobs/summarize",) and kwargs == {}
@@ -275,3 +296,18 @@ def test_route_without_month_drains(db, settings, client):
         assert r.status_code == 200 and r.json()["mode"] == "drain" and r.json()["processed"] == 6
     finally:
         app.dependency_overrides.clear()
+
+
+def test_drain_reaches_newer_months_past_pending_head(db, settings, client, no_continue):
+    # reviewer's livelock reproduction: every page pending in the oldest month, done posts later
+    for slug in ("raktar24", "kontigo", "kontenertar", "vnv", "erdraktar"):
+        seed(db, page_slug=slug, month=MONTHS[0], posts=[{"analysis_status": "pending"}])
+    for m in MONTHS[1:]:
+        seed(db, page_slug="kontigo", month=m, posts=[{}])
+    for m in MONTHS:
+        mark_stale(db, m)
+    result = run_summarize_job(db, settings, client, TimeBudget(1000))
+    assert result["processed"] == 12 and result["remaining"] == 0
+    stale = db.execute("select distinct month from monthly_summaries where stale").fetchall()
+    assert [r["month"] for r in stale] == [MONTHS[0]]
+    assert client.messages.create.call_count == 4  # Kontigo + all-pages for Aug and Sep only
