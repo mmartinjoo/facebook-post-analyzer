@@ -26,16 +26,16 @@ class Ar(BaseModel):
 
 class PostAnalysis(BaseModel):
     celkozonseg: Celkozonseg = Field(description="Kinek szól a poszt: magánszemélynek, vállalkozásnak vagy mindkettőnek.")
-    ceges_szegmens: CegesSzegmens = Field(description="A megcélzott céges szegmens; nincs, ha nem cégeknek szól.")
+    ceges_szegmens: CegesSzegmens = Field(description="A megcélzott céges szegmens; nincs, ha nem cégeknek szól; egyeb, ha cégeknek szól, de egyik sem illik.")
     lakossagi_szegmens: LakossagiSzegmens = Field(
-        description="A megcélzott lakossági szegmens; nincs, ha nem magánszemélyeknek szól."
+        description="A megcélzott lakossági szegmens; nincs, ha nem magánszemélyeknek szól; egyeb, ha nekik szól, de egyik sem illik."
     )
-    use_case: str = Field(description="Egy magyar mondat: a konkrét tárolási helyzet, nem kategória.")
-    fajdalompont: str = Field(description="Egy magyar mondat: a probléma, amire a poszt megoldást kínál.")
+    use_case: str = Field(description="Egy magyar mondat: a konkrét tárolási helyzet, nem kategória; üres string, ha nincs.")
+    fajdalompont: str = Field(description="Egy magyar mondat: a probléma, amire a poszt megoldást kínál; üres string, ha nincs.")
     szezonalis_horog: SzezonalisHorog = Field(description="Szezonhoz vagy alkalomhoz kötött horog; nincs, ha nincs.")
     kontener_meretek: list[str] = Field(description="A posztban szereplő konténerméretek az eredeti alakjukban.")
     ar_megjelenik: bool = Field(description="Szerepel-e bármilyen ár a posztban vagy a képeken.")
-    arak: list[Ar] = Field(description="Minden ár külön elemként, mérettel és egységgel; üres, ha nincs ár.")
+    arak: list[Ar] = Field(description="Minden ár külön elemként, mérettel és egységgel; az ingyenes/0 Ft ajánlat nem ár; üres, ha nincs ár.")
     ar_ertek: int | None = Field(description="A legalacsonyabb ár az arak listából (\"ártól\"), vagy null.")
     ar_egyseg: ArEgyseg | None = Field(description="Az ar_ertek egysége, vagy null.")
     arhorgony: Arhorgony = Field(description="Mihez hasonlítja az árat a poszt (garázs, raktár, másik szolgáltató).")
@@ -60,8 +60,9 @@ def normalize(a: PostAnalysis) -> PostAnalysis:
         "ajanlat_mechanika": _clean_enum_list(a.ajanlat_mechanika),
         "bizalmi_elemek": _clean_enum_list(a.bizalmi_elemek),
     }
-    if a.arak:
-        lowest = min(a.arak, key=lambda ar: ar.ertek)
+    priced = [ar for ar in a.arak if ar.ertek > 0]
+    if priced:
+        lowest = min(priced, key=lambda ar: ar.ertek)
         update |= {"ar_megjelenik": True, "ar_ertek": lowest.ertek, "ar_egyseg": lowest.egyseg}
     else:
         update |= {"ar_megjelenik": False, "ar_ertek": None, "ar_egyseg": None}

@@ -11,7 +11,8 @@ A képeket ugyanolyan gondosan olvasd el, mint a szöveget. Konténerparkos posz
 # Általános szabályok
 
 - Ne találgass. Ha egy információ nem szerepel a posztban vagy a képeken, használd a `nincs` / `nem_megallapithato` értéket, üres listát vagy null-t, ahogy az adott mező előírja. A „valószínűleg” nem elég ok egy érték megadására.
-- Az egymondatos mezők (`use_case`, `fajdalompont`) pontosan egy magyar mondatot tartalmaznak, ponttal a végén.
+- Az egymondatos mezők (`use_case`, `fajdalompont`) pontosan egy magyar mondatot tartalmaznak, ponttal a végén; ha a poszt nem nevez meg ilyet, üres string (`""`).
+- Ha egy egyértékű enum-mezőre több érték is illik, a hangsúlyosabbat válaszd: azt, amire a kép vagy a poszt főmondata épül. (Kivétel a `cta_tipus`, ott rögzített sorrend dönt, lásd ott.)
 - Az enum-mezőknél csak a felsorolt értékek használhatók, pontosan így írva.
 - Konkrét use-case, ne kategória: a tárolási helyzetet úgy írd le, ahogy egy ügyfél élete szintjén megtörténik.
   - Jó: „Nincs hol tartani a téli gumit szezonon kívül.”
@@ -35,8 +36,10 @@ Ha a poszt cégeknek szól, melyik ágazatnak.
 - `kereskedelem`: bolt, nagyker, áru- és szezonális készlet tárolása.
 - `szolgaltato`: egyéb szolgáltató cég (pl. rendezvénytechnika, takarítócég eszközei, iratok).
 - `webshop`: online kereskedő készlete, csomagolóanyag.
-- `egyeb`: cégnek szól, de egyik fenti ágazat sem illik rá, vagy ágazat nélkül általánosan céges.
-- `nincs`: a poszt nem cégeknek szól.
+- `egyeb`: cégeknek szól, de egyik fenti ágazat sem illik rá (ide tartozik az ágazat megnevezése nélküli, általánosan céges poszt is).
+- `nincs`: a poszt egyáltalán nem cégeknek szól.
+
+A két szegmensmező (`ceges_szegmens`, `lakossagi_szegmens`) azonos szabállyal működik: `nincs` = a poszt egyáltalán nem ezt a közönségtípust célozza; `egyeb` = ezt a közönségtípust célozza, de a felsorolt szegmensek egyike sem illik rá.
 
 ## lakossagi_szegmens
 Ha a poszt magánszemélyeknek szól, melyik élethelyzetnek.
@@ -47,26 +50,36 @@ Ha a poszt magánszemélyeknek szól, melyik élethelyzetnek.
 - `motoros`: motor, quad, robogó téli tárolása.
 - `sportolo`: sporteszközök (kerékpár, síléc, kajak, SUP).
 - `hobbi_gyujto`: gyűjtemény, hobbieszközök, műhelyfelszerelés.
-- `egyeb`: magánszemélynek szól, de a fentiek egyike sem (pl. hagyaték, diák a nyári szünetben).
-- `nincs`: a poszt nem magánszemélyeknek szól, vagy nem állapítható meg.
+- `egyeb`: magánszemélyeknek szól, de a fentiek egyike sem illik rá (pl. hagyaték; vagy általános lakossági poszt konkrét élethelyzet nélkül).
+- `nincs`: a poszt egyáltalán nem magánszemélyeknek szól.
+
+A két szegmensmező (`ceges_szegmens`, `lakossagi_szegmens`) azonos szabállyal működik: `nincs` = a poszt egyáltalán nem ezt a közönségtípust célozza; `egyeb` = ezt a közönségtípust célozza, de a felsorolt szegmensek egyike sem illik rá.
 
 Ha több szegmens is szerepel, a hangsúlyosabbat válaszd (amire a kép vagy a főmondat épül).
 
+Összhang a `celkozonseg` mezővel (kötelező):
+- `maganszemely` → `ceges_szegmens` = `nincs`.
+- `vallalkozas` → `lakossagi_szegmens` = `nincs`.
+- `mindketto` → mindkét szegmensmező ki van töltve (ha nincs konkrét szegmens, `egyeb`).
+- `nem_megallapithato` → mindkét szegmensmező `nincs`.
+
 ## use_case
-Egy mondat: a konkrét tárolási helyzet. Például: „A téli gumi tárolása szezonon kívül.” vagy „A webshop karácsonyi készletének ideiglenes elhelyezése.” Ha a poszt nem szól tárolási helyzetről (pl. ünnepi köszöntő), írd: „A poszt nem nevez meg konkrét tárolási helyzetet.”
+Egy mondat: a konkrét tárolási helyzet. Például: „A téli gumi tárolása szezonon kívül.” vagy „A webshop karácsonyi készletének ideiglenes elhelyezése.” Ha a poszt nem nevez meg használati esetet (pl. ünnepi köszöntő), üres string (`""`).
 
 ## fajdalompont
-Egy mondat: a probléma, amire a poszt megoldást ígér. Például: „A panellakás tárolója tele van.” vagy „A felújítás alatt nincs hová tenni a bútorokat.” Ha nincs ilyen, írd: „A poszt nem nevez meg fájdalompontot.”
+Egy mondat: a probléma, amire a poszt megoldást ígér. Például: „A panellakás tárolója tele van.” vagy „A felújítás alatt nincs hová tenni a bútorokat.” Ha a poszt nem nevez meg fájdalompontot, üres string (`""`).
 
 ## szezonalis_horog
 A poszt egy szezonhoz vagy alkalomhoz köti az üzenetet. A poszt dátumát csak megerősítésre használd, önmagában nem elég.
 - `gumicsere`: tavaszi/őszi gumicsere, téli gumi tárolása.
 - `unnep`: karácsony, húsvét, Black Friday, újév és más ünnepek.
-- `koltozesi_szezon`: a nyári/őszi költözési időszak, albérletváltás, egyetemi kollégiumi költözés.
+- `koltozesi_szezon`: a nyári/őszi költözési időszak, albérletváltás.
 - `nyar_vege`: nyári eszközök elpakolása (kerti bútor, medence, bicikli, kemping).
 - `felujitas`: tavaszi/nyári felújítási időszak.
-- `tanev`: tanévkezdés, tanév vége, diákok nyári tárolása.
+- `tanev`: tanévkezdés, tanév vége, diákok nyári tárolása, kollégiumi ki- és beköltözés.
 - `nincs`: nincs szezonhoz kötött horog.
+
+Ha több horog is szerepel (pl. „őszi gumicsere + Black Friday akció”), a hangsúlyosabbat válaszd: amire a kép vagy a főmondat épül.
 
 ## kontener_meretek
 A posztban vagy a képeken szereplő konténerméretek a poszt saját megfogalmazásában és mértékegységével, átváltás nélkül. Például `["9 láb", "20 láb"]`, `["6 m2"]`, `["20'", "40'"]`. Ha nem szerepel méret, üres lista.
@@ -80,7 +93,7 @@ Minden ár külön elemként: `meret` (a méret a poszt szavaival, vagy null, ha
 - `ft_m2_ho`: négyzetméterenkénti havidíj („Ft/m²/hó”).
 - `ft_nap`: napi díj („Ft/nap”).
 - `egyeb`: minden más (egyszeri díj, heti díj, egység nélküli „ártól” ár).
-Példa: „20 lábas konténer 45.000 Ft/hó, 9 lábas 25.000 Ft/hó” → két elem. A kedvezményes árat is külön elemként vedd fel, ha konkrét összeg. Ha nincs ár, üres lista.
+Példa: „20 lábas konténer 45.000 Ft/hó, 9 lábas 25.000 Ft/hó” → két elem. A kedvezményes árat is külön elemként vedd fel, ha konkrét összeg. Az ingyenes / 0 Ft ajánlat nem ár: az `ajanlat_mechanika` listába `elso_honap_ingyen`-ként (vagy `kedvezmeny`-ként) kerül, az `arak` listába nem. Ha nincs ár, üres lista.
 
 ## ar_ertek és ar_egyseg
 A legalacsonyabb ár az `arak` listából („ártól”) és annak egysége. Ha az `arak` üres, mindkettő null.
@@ -108,6 +121,8 @@ Lista; minden szereplő ajánlati elem egyszer.
 - `hataridos_akcio`: határidőhöz kötött ajánlat („október 31-ig”).
 - `nincs`: nincs sürgetés.
 
+Ha több is illik (pl. „utolsó 3 konténer október 31-ig”), a hangsúlyosabbat válaszd: amire a kép vagy a főmondat épül.
+
 ## bizalmi_elemek
 Lista; a poszt által hangsúlyozott biztonsági és bizalmi elemek.
 - `kamera`: kamerás megfigyelés.
@@ -124,6 +139,8 @@ Lista; a poszt által hangsúlyozott biztonsági és bizalmi elemek.
 - `kattints`: link megnyitása („Részletek a weboldalon”).
 - `foglalj`: foglalás, előjegyzés („Foglald le a konténered!”).
 - `nincs`: nincs cselekvésre ösztönzés.
+
+Ha több felszólítás is van, a legerősebb elköteleződés nyer, ebben a sorrendben: `foglalj` > `hivj` > `irj` > `kattints`. Például „Hívj vagy írj Messengeren!” → `hivj`; „Foglalj online vagy hívj!” → `foglalj`.
 
 ## cta_szoveg
 A cselekvésre ösztönző mondat szó szerint, ahogy a posztban vagy a képen áll, javítás és fordítás nélkül (pl. „Foglald le most a helyed!”). Üres szöveg, ha nincs.

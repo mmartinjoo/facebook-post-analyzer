@@ -94,3 +94,19 @@ def test_prompt_v1_loads_and_mentions_fields():
 def test_load_prompt_file_missing_raises():
     with pytest.raises(FileNotFoundError):
         load_prompt_file("does_not_exist")
+
+
+def test_normalize_ignores_non_positive_prices():
+    a = PostAnalysis(
+        **_analysis(
+            arak=[
+                {"meret": None, "ertek": 0, "egyseg": "ft_ho"},
+                {"meret": "20 láb", "ertek": 45000, "egyseg": "ft_m2_ho"},
+            ]
+        )
+    )
+    n = normalize(a)
+    assert (n.ar_megjelenik, n.ar_ertek, n.ar_egyseg) == (True, 45000, "ft_m2_ho")
+
+    only_free = normalize(PostAnalysis(**_analysis(arak=[{"meret": None, "ertek": 0, "egyseg": "ft_ho"}], ar_ertek=0)))
+    assert (only_free.ar_megjelenik, only_free.ar_ertek, only_free.ar_egyseg) == (False, None, None)
