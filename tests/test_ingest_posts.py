@@ -85,3 +85,13 @@ def test_upsert_no_text_no_media_is_skipped(db, items, pages, run_id):
     assert upsert_posts(db, [record], run_id) == (1, 0)
     row = db.execute("SELECT analysis_status FROM posts").fetchone()
     assert row["analysis_status"] == "skipped"
+
+
+def test_upsert_in_chunks_keeps_counts(db, items, pages, run_id, monkeypatch):
+    import app.ingest.posts as posts_module
+
+    monkeypatch.setattr(posts_module, "CHUNK_SIZE", 2)
+    records = [map_post_item(i, pages) for i in items]
+    assert upsert_posts(db, records, run_id) == (3, 0)
+    assert upsert_posts(db, records, run_id) == (0, 3)
+    assert db.execute("SELECT count(*) AS n FROM posts").fetchone()["n"] == 3

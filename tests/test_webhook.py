@@ -86,6 +86,34 @@ def test_duplicate_delivery_is_noop(client, db, continued):
     assert continued == []
 
 
+def test_duplicate_delivery_while_processing_is_skipped(client, db, continued):
+    _insert_run(db, status="processing")
+    r = client.post("/api/webhooks/apify?token=hook-s", json=_payload())
+    assert r.status_code == 200
+    assert r.json() == {"skipped": True, "reason": "in_progress"}
+    assert _post_count(db) == 0 and _run(db)["status"] == "processing"
+    assert continued == []
+
+
+def test_failed_run_can_be_redelivered(client, db, continued):
+    _insert_run(db, status="failed")
+    assert client.post("/api/webhooks/apify?token=hook-s", json=_payload()).status_code == 200
+    assert _run(db)["status"] == "processed" and _post_count(db) == 3
+
+
+def test_continuation_error_does_not_fail_processed_run(settings, db, monkeypatch):
+    def boom(*a, **k):
+        raise RuntimeError("continuation down")
+
+    monkeypatch.setattr(webhook_module, "continue_job", boom)
+    _insert_run(db)
+    apify = MagicMock()
+    apify.dataset.return_value.iterate_items.return_value = list(ITEMS)
+    with pytest.raises(RuntimeError):
+        webhook_module.process_webhook(db, settings, apify, _payload())
+    assert _run(db)["status"] == "processed" and _post_count(db) == 3
+
+
 def test_unknown_run_404(client, db):
     r = client.post("/api/webhooks/apify?token=hook-s", json=_payload())
     assert r.status_code == 404

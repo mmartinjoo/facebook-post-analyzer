@@ -33,7 +33,6 @@ def _process_posts_run(conn, settings, client, run: dict, payload: dict) -> dict
     if errors:
         error = f"{len(errors)} items skipped: " + "; ".join(errors[:5])
     mark_run(conn, run["id"], status="processed", items_count=total, error=error)
-    continue_job(settings, "/api/jobs/analyze")
     return {"run_id": run["id"], "inserted": inserted, "updated": updated, "skipped_items": len(errors)}
 
 
@@ -67,9 +66,14 @@ def _process_comments_run(conn, settings, client, run: dict, payload: dict) -> d
         months = []
     for month in months:
         mark_stale(conn, datetime.strptime(month, "%Y-%m").date())
-    if months:
-        continue_job(settings, "/api/jobs/summarize")
-    return {"run_id": run["id"], "comments": count, "skipped_items": len(errors)}
+    return {"run_id": run["id"], "comments": count, "skipped_items": len(errors), "months": months}
+
+
+CLAIM = """
+    UPDATE scrape_runs SET status = 'processing'
+    WHERE id = %s AND status IN ('started', 'succeeded', 'failed')
+    RETURNING id
+"""
 
 
 def process_webhook(conn, settings, client, payload: dict) -> dict:
@@ -79,8 +83,15 @@ def process_webhook(conn, settings, client, payload: dict) -> dict:
         raise LookupError(f"unknown Apify run {payload['runId']}")
     if run["status"] == "processed":
         return {"skipped": True}
+    # atomic claim: a duplicate delivery arriving while this one is still ingesting finds 'processing'
+    claimed = conn.execute(CLAIM, (run["id"],)).fetchone()
+    conn.commit()
+    if claimed is None:
+        logger.info(json.dumps({"job": "webhook", "run_id": run["id"], "skipped": "in_progress"}))
+        return {"skipped": True, "reason": "in_progress"}
 
     event = payload.get("eventType")
+    next_job = None
     if event != SUCCEEDED:
         mark_run(conn, run["id"], status="failed", error=event)
         result = {"run_id": run["id"], "status": "failed"}
@@ -89,14 +100,19 @@ def process_webhook(conn, settings, client, payload: dict) -> dict:
         try:
             if run["actor"] == "posts":
                 result = _process_posts_run(conn, settings, client, run, payload)
+                next_job = "/api/jobs/analyze"
             else:
                 result = _process_comments_run(conn, settings, client, run, payload)
+                next_job = "/api/jobs/summarize" if result.pop("months") else None
         except Exception as e:
             conn.rollback()
             mark_run(conn, run["id"], status="failed", error=str(e)[:500])
             raise
         processed = result["inserted"] + result["updated"] if "inserted" in result else result["comments"]
 
+    # outside the try: a continuation hiccup must not flip an already processed run to failed
+    if next_job:
+        continue_job(settings, next_job)
     logger.info(json.dumps({
         "job": "webhook", "run_id": run["id"], "processed": processed,
         "elapsed_s": round(time.monotonic() - started, 2),

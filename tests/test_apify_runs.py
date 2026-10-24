@@ -95,3 +95,13 @@ def test_webhooks_encode_with_real_library_encoder(settings):
     ]
     assert hook["requestUrl"] == "http://testserver/api/webhooks/apify?token=hook-s"
     assert hook["payloadTemplate"] == PAYLOAD_TEMPLATE
+
+
+def test_processed_run_cannot_be_downgraded(db, settings):
+    run_id = start_comments_run(db, settings, make_client(), ["https://fb.com/p/1"], "monthly_comments", {"month": "2026-09"})
+    mark_run(db, run_id, status="processed", items_count=3)
+    mark_run(db, run_id, status="failed", error="late failure")
+    row = get_run_by_apify_id(db, "run1")
+    assert row["status"] == "processed" and row["error"] is None
+    mark_run(db, run_id, status="processed", items_count=4)
+    assert get_run_by_apify_id(db, "run1")["items_count"] == 4

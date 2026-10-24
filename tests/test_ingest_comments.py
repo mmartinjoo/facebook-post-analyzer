@@ -52,3 +52,14 @@ def test_upsert_idempotent(db, setup):
     assert upsert_comments(db, records) == len(records)
     assert upsert_comments(db, records) == len(records)
     assert db.execute("SELECT count(*) AS n FROM comments").fetchone()["n"] == len(records)
+
+
+def test_upsert_in_chunks(db, setup, monkeypatch):
+    import app.ingest.comments as comments_module
+
+    monkeypatch.setattr(comments_module, "CHUNK_SIZE", 2)
+    posts_by_url, pages_by_id, _ = setup
+    records = [map_comment_item(i, posts_by_url, pages_by_id) for i in ITEMS]
+    assert len(records) > 2
+    assert upsert_comments(db, records) == len(records)
+    assert db.execute("SELECT count(*) AS n FROM comments").fetchone()["n"] == len(records)

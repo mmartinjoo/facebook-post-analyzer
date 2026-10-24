@@ -98,6 +98,7 @@ def get_run_by_apify_id(conn, apify_run_id: str) -> dict | None:
 
 
 def mark_run(conn, run_id: int, *, status: str, items_count: int | None = None, error: str | None = None) -> None:
+    """A `processed` run is final: only another `processed` may touch it."""
     conn.execute(
         """
         UPDATE scrape_runs SET
@@ -106,9 +107,9 @@ def mark_run(conn, run_id: int, *, status: str, items_count: int | None = None, 
           error = COALESCE(%s, error),
           finished_at = CASE WHEN %s IN ('succeeded', 'failed') THEN now() ELSE finished_at END,
           processed_at = CASE WHEN %s = 'processed' THEN now() ELSE processed_at END
-        WHERE id = %s
+        WHERE id = %s AND (%s = 'processed' OR status <> 'processed')
         """,
-        (status, items_count, error, status, status, run_id),
+        (status, items_count, error, status, status, run_id, status),
     )
     conn.commit()
 

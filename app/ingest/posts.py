@@ -24,6 +24,7 @@ from psycopg.types.json import Jsonb
 from app.pages import Page, resolve_page
 
 MAX_IMAGES = 4
+CHUNK_SIZE = 200  # records per transaction in upsert_posts
 
 
 @dataclass
@@ -121,8 +122,10 @@ RETURNING (xmax = 0) AS inserted
 
 
 def upsert_posts(conn, records: list[PostRecord], run_id: int) -> tuple[int, int]:
+    """Upsert in chunks of CHUNK_SIZE with a commit per chunk, so a huge backfill dataset never sits in one
+    transaction; a crash leaves the committed chunks, the re-delivered webhook upserts them again."""
     inserted = updated = 0
-    for r in records:
+    for i, r in enumerate(records, 1):
         has_content = bool((r.text or "").strip()) or bool(image_urls(r.media))
         row = conn.execute(
             _UPSERT,
@@ -145,5 +148,7 @@ def upsert_posts(conn, records: list[PostRecord], run_id: int) -> tuple[int, int
             inserted += 1
         else:
             updated += 1
+        if i % CHUNK_SIZE == 0:
+            conn.commit()
     conn.commit()
     return inserted, updated

@@ -20,7 +20,7 @@ create table scrape_runs (
     actor text not null check (actor in ('posts', 'comments')),
     kind text not null check (kind in ('daily', 'backfill', 'monthly_comments', 'backfill_comments')),
     params jsonb not null default '{}',
-    status text not null default 'started' check (status in ('started', 'succeeded', 'failed', 'processed')),
+    status text not null default 'started' check (status in ('started', 'succeeded', 'failed', 'processing', 'processed')),
     items_count integer,
     error text,
     started_at timestamptz not null default now(),

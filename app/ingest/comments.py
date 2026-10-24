@@ -20,6 +20,8 @@ from psycopg.types.json import Jsonb
 from app.pages import Page
 from app.timeutil import month_bounds_utc
 
+CHUNK_SIZE = 200  # records per transaction in upsert_comments
+
 
 @dataclass
 class CommentRecord:
@@ -87,20 +89,29 @@ def map_comment_item(item: dict, posts_by_url: dict[str, dict], pages_by_id: dic
     )
 
 
+_UPSERT = """
+INSERT INTO comments (post_id, fb_comment_id, text, posted_at, likes_count, is_reply,
+                      author_is_page, raw, scraped_at)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, now())
+ON CONFLICT (fb_comment_id) DO UPDATE SET
+    text = EXCLUDED.text, likes_count = EXCLUDED.likes_count,
+    raw = EXCLUDED.raw, scraped_at = now()
+"""
+
+
 def upsert_comments(conn, records: list[CommentRecord]) -> int:
-    for r in records:
-        conn.execute(
-            """
-            INSERT INTO comments (post_id, fb_comment_id, text, posted_at, likes_count, is_reply,
-                                  author_is_page, raw, scraped_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, now())
-            ON CONFLICT (fb_comment_id) DO UPDATE SET
-                text = EXCLUDED.text, likes_count = EXCLUDED.likes_count,
-                raw = EXCLUDED.raw, scraped_at = now()
-            """,
-            (r.post_id, r.fb_comment_id, r.text, r.posted_at, r.likes_count, r.is_reply,
-             r.author_is_page, Jsonb(r.raw)),
-        )
+    """Upsert in chunks of CHUNK_SIZE with a commit per chunk (bounded transactions on big backfills)."""
+    with conn.cursor() as cur:
+        for i in range(0, len(records), CHUNK_SIZE):
+            cur.executemany(
+                _UPSERT,
+                [
+                    (r.post_id, r.fb_comment_id, r.text, r.posted_at, r.likes_count, r.is_reply,
+                     r.author_is_page, Jsonb(r.raw))
+                    for r in records[i : i + CHUNK_SIZE]
+                ],
+            )
+            conn.commit()
     conn.commit()
     return len(records)
 
